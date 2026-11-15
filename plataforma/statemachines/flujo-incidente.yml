@@ -1,0 +1,362 @@
+# FlujoIncidente (Standard). Lo inicia el detector de A (datos-ia) con el ARN guardado en SSM
+# /arquifusion/sfn_incidente_arn. Entrada: {incidente_id, maquina_id, zona, severidad, score}.
+# La severidad se lee de DynamoDB (el detector la sigue subiendo después de crear el incidente).
+Comment: ArquiFusion - gestión automática de un incidente (Persona B)
+StartAt: LeerIncidente
+States:
+
+  LeerIncidente:
+    Type: Task
+    Comment: Integración directa con DynamoDB (sin Lambda)
+    Resource: arn:aws:states:::dynamodb:getItem
+    Parameters:
+      TableName: af_incidentes
+      Key:
+        incidente_id:
+          S.$: $.incidente_id
+    ResultSelector:
+      estado.$: $.Item.estado.S
+      severidad.$: $.Item.severidad.S
+    ResultPath: $.actual
+    Retry:
+      - ErrorEquals: [States.TaskFailed]
+        IntervalSeconds: 2
+        MaxAttempts: 2
+        BackoffRate: 2
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: AvisarFallo
+    Next: YaResuelto
+
+  YaResuelto:
+    Type: Choice
+    Choices:
+      - Variable: $.actual.estado
+        StringEquals: resuelto
+        Next: Atendido
+    Default: ClasificarSeveridad
+
+  ClasificarSeveridad:
+    Type: Choice
+    Comment: La severidad define el SLA (y quién recibe email se decide en NotificarRol)
+    Choices:
+      - Variable: $.actual.severidad
+        StringEquals: critica
+        Next: RutaCritica
+      - Variable: $.actual.severidad
+        StringEquals: alta
+        Next: RutaAlta
+    Default: RutaMedia
+
+  RutaCritica:
+    Type: Pass
+    Result:
+      ruta: critica
+      sla_seg: ${self:custom.slaSeg.critica}
+      nivel: 0
+    ResultPath: $.control
+    Next: ExplicarConIA
+
+  RutaAlta:
+    Type: Pass
+    Result:
+      ruta: alta
+      sla_seg: ${self:custom.slaSeg.alta}
+      nivel: 0
+    ResultPath: $.control
+    Next: ExplicarConIA
+
+  RutaMedia:
+    Type: Pass
+    Result:
+      ruta: media
+      sla_seg: ${self:custom.slaSeg.media}
+      nivel: 0
+    ResultPath: $.control
+    Next: ExplicarConIA
+
+  ExplicarConIA:
+    Type: Task
+    Comment: Lambda de A (Bedrock -> Gemini -> plantilla). Si falla, el flujo sigue sin IA.
+    Resource: arn:aws:states:::lambda:invoke
+    Parameters:
+      FunctionName: ${self:custom.lambdaA}-iaExplicar
+      Payload:
+        incidente_id.$: $.incidente_id
+    ResultSelector:
+      fuente.$: $.Payload.ia.fuente
+    ResultPath: $.ia
+    TimeoutSeconds: 60
+    Retry:
+      - ErrorEquals: [Lambda.ServiceException, Lambda.AWSLambdaException, Lambda.SdkClientException, Lambda.TooManyRequestsException]
+        IntervalSeconds: 2
+        MaxAttempts: 2
+        BackoffRate: 2
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.ia
+        Next: AccionesOperativas
+    Next: AccionesOperativas
+
+  AccionesOperativas:
+    Type: Parallel
+    Comment: Asignar técnico y reservar repuesto son independientes, así que corren a la vez
+    ResultSelector:
+      tecnico.$: $[0]
+      repuesto.$: $[1]
+    ResultPath: $.acciones
+    Branches:
+      - StartAt: AsignarTecnico
+        States:
+          AsignarTecnico:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: ${self:custom.lambdaB}-asignarTecnico
+              Payload:
+                incidente_id.$: $.incidente_id
+            OutputPath: $.Payload
+            Retry:
+              - ErrorEquals: [States.ALL]
+                IntervalSeconds: 2
+                MaxAttempts: 2
+                BackoffRate: 2
+            Catch:
+              - ErrorEquals: [States.ALL]
+                Next: SinTecnico
+            End: true
+          SinTecnico:
+            Type: Pass
+            Result:
+              tecnico_id: null
+              motivo: error al asignar
+            End: true
+      - StartAt: ReservarRepuesto
+        States:
+          ReservarRepuesto:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: ${self:custom.lambdaB}-reservarRepuesto
+              Payload:
+                incidente_id.$: $.incidente_id
+            OutputPath: $.Payload
+            Retry:
+              - ErrorEquals: [States.ALL]
+                IntervalSeconds: 2
+                MaxAttempts: 2
+                BackoffRate: 2
+            Catch:
+              - ErrorEquals: [States.ALL]
+                Next: SinRepuesto
+            End: true
+          SinRepuesto:
+            Type: Pass
+            Result:
+              reservado: false
+              motivo: error al reservar
+            End: true
+    Next: NotificarPorRol
+
+  NotificarPorRol:
+    Type: Parallel
+    Comment: Mismo incidente, mensaje y canal distintos para cada rol
+    ResultPath: null
+    Branches:
+      - StartAt: NotificarOperador
+        States:
+          NotificarOperador:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: ${self:custom.lambdaB}-notificarRol
+              Payload:
+                incidente_id.$: $.incidente_id
+                rol: operador
+            ResultPath: null
+            Retry:
+              - ErrorEquals: [States.ALL]
+                IntervalSeconds: 2
+                MaxAttempts: 2
+                BackoffRate: 2
+            Catch:
+              - ErrorEquals: [States.ALL]
+                ResultPath: null
+                Next: OperadorNoNotificado
+            End: true
+          OperadorNoNotificado:
+            Type: Pass
+            End: true
+      - StartAt: NotificarTecnico
+        States:
+          NotificarTecnico:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: ${self:custom.lambdaB}-notificarRol
+              Payload:
+                incidente_id.$: $.incidente_id
+                rol: tecnico
+            ResultPath: null
+            Retry:
+              - ErrorEquals: [States.ALL]
+                IntervalSeconds: 2
+                MaxAttempts: 2
+                BackoffRate: 2
+            Catch:
+              - ErrorEquals: [States.ALL]
+                ResultPath: null
+                Next: TecnicoNoNotificado
+            End: true
+          TecnicoNoNotificado:
+            Type: Pass
+            End: true
+      - StartAt: NotificarSupervisor
+        States:
+          NotificarSupervisor:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: ${self:custom.lambdaB}-notificarRol
+              Payload:
+                incidente_id.$: $.incidente_id
+                rol: supervisor
+            ResultPath: null
+            Retry:
+              - ErrorEquals: [States.ALL]
+                IntervalSeconds: 2
+                MaxAttempts: 2
+                BackoffRate: 2
+            Catch:
+              - ErrorEquals: [States.ALL]
+                ResultPath: null
+                Next: SupervisorNoNotificado
+            End: true
+          SupervisorNoNotificado:
+            Type: Pass
+            End: true
+      - StartAt: NotificarGerente
+        States:
+          NotificarGerente:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: ${self:custom.lambdaB}-notificarRol
+              Payload:
+                incidente_id.$: $.incidente_id
+                rol: gerente
+            ResultPath: null
+            Retry:
+              - ErrorEquals: [States.ALL]
+                IntervalSeconds: 2
+                MaxAttempts: 2
+                BackoffRate: 2
+            Catch:
+              - ErrorEquals: [States.ALL]
+                ResultPath: null
+                Next: GerenteNoNotificado
+            End: true
+          GerenteNoNotificado:
+            Type: Pass
+            End: true
+    Next: TieneTecnico
+
+  TieneTecnico:
+    Type: Choice
+    Comment: Sin técnico disponible no tiene sentido esperar el SLA; se escala de inmediato
+    Choices:
+      - Variable: $.acciones.tecnico.tecnico_id
+        IsNull: true
+        Next: Escalar
+    Default: EsperarSLA
+
+  EsperarSLA:
+    Type: Wait
+    Comment: Esperar no consume transiciones ni cómputo
+    SecondsPath: $.control.sla_seg
+    Next: VerificarAtencion
+
+  VerificarAtencion:
+    Type: Task
+    Resource: arn:aws:states:::dynamodb:getItem
+    Parameters:
+      TableName: af_incidentes
+      Key:
+        incidente_id:
+          S.$: $.incidente_id
+    ResultSelector:
+      estado.$: $.Item.estado.S
+      severidad.$: $.Item.severidad.S
+    ResultPath: $.actual
+    Retry:
+      - ErrorEquals: [States.TaskFailed]
+        IntervalSeconds: 2
+        MaxAttempts: 2
+        BackoffRate: 2
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: AvisarFallo
+    Next: FueAtendido
+
+  FueAtendido:
+    Type: Choice
+    Choices:
+      - Or:
+          - Variable: $.actual.estado
+            StringEquals: en_atencion
+          - Variable: $.actual.estado
+            StringEquals: resuelto
+        Next: Atendido
+      - Variable: $.control.nivel
+        NumericGreaterThanEquals: 2
+        Next: EscaladoAGerencia
+    Default: Escalar
+
+  Escalar:
+    Type: Task
+    Comment: Nivel 1 -> supervisor, nivel 2 -> gerente. Si la severidad subió, el SLA se acorta.
+    Resource: arn:aws:states:::lambda:invoke
+    Parameters:
+      FunctionName: ${self:custom.lambdaB}-escalar
+      Payload:
+        incidente_id.$: $.incidente_id
+        control.$: $.control
+    ResultSelector:
+      nivel.$: $.Payload.nivel
+      sla_seg.$: $.Payload.sla_seg
+      ruta.$: $.Payload.ruta
+    ResultPath: $.control
+    Retry:
+      - ErrorEquals: [States.ALL]
+        IntervalSeconds: 2
+        MaxAttempts: 2
+        BackoffRate: 2
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: AvisarFallo
+    Next: EsperarSLA
+
+  Atendido:
+    Type: Succeed
+
+  EscaladoAGerencia:
+    Type: Succeed
+    Comment: Se avisó al supervisor y al gerente; el incidente sigue abierto en la cola
+
+  AvisarFallo:
+    Type: Task
+    Comment: Integración directa con SNS (sin Lambda); el tópico se referencia por nombre fijo
+    Resource: arn:aws:states:::sns:publish
+    Parameters:
+      TopicArn: arn:aws:sns:${aws:region}:${aws:accountId}:af-notif-supervisor
+      Subject: "[ArquiFusion] Falla en el flujo de un incidente"
+      Message.$: States.Format('El flujo del incidente {} se detuvo. Revise la consola de Step Functions. Detalle {}', $.incidente_id, States.JsonToString($.error))
+    Next: FlujoFallido
+
+  FlujoFallido:
+    Type: Fail
+    Error: FlujoIncidenteFallido
+    Cause: Ver AvisarFallo y el historial de la ejecución

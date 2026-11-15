@@ -1,5 +1,6 @@
-# infra-base: tablas, índices, streams, SNS, parámetros SSM y un Step Functions mínimo.
-# Despliega esto PRIMERO (serverless deploy --stage dev). B puede reemplazar FlujoIncidente por el suyo.
+# infra-base: tablas, índices, streams, SNS y parámetros SSM.
+# Despliega esto PRIMERO (npx serverless@3 deploy --stage dev).
+# FlujoIncidente y /arquifusion/sfn_incidente_arn los crea plataforma/ (Persona B).
 service: arquifusion-infra-base
 frameworkVersion: '3'
 
@@ -175,40 +176,9 @@ resources:
         Type: String
         Value: {Ref: TopicGerente}
 
-    PSfnIncidente:
-      Type: AWS::SSM::Parameter
-      Properties:
-        Name: /arquifusion/sfn_incidente_arn
-        Type: String
-        Value: {Ref: FlujoIncidente}
-
     PUmbrales:
       Type: AWS::SSM::Parameter
       Properties:
         Name: /arquifusion/umbrales
         Type: String
         Value: '{"media":0.4,"alta":0.6,"critica":0.8,"cooldown_min":30,"causa_comun_min_maquinas":3,"ventana_min":60}'
-
-    FlujoIncidente:
-      Type: AWS::StepFunctions::StateMachine
-      Properties:
-        StateMachineName: arquifusion-flujo-incidente
-        StateMachineType: STANDARD
-        RoleArn: arn:aws:iam::${aws:accountId}:role/LabRole
-        DefinitionString:
-          Fn::Join:
-            - ''
-            - - ''
-              - "{\"Comment\":\"FlujoIncidente minimo: explicacion con IA + notificacion por rol (B puede reemplazarlo)\",\"StartAt\":\"ExplicarConIA\",\"States\":{\"ExplicarConIA\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\""
-              - 'arn:aws:lambda:${aws:region}:${aws:accountId}:function:arquifusion-datos-ia-${self:provider.stage}-iaExplicar'
-              - "\",\"Payload.$\":\"$\"},\"ResultSelector\":{\"ia.$\":\"$.Payload.ia\"},\"ResultPath\":\"$.resultado\",\"Retry\":[{\"ErrorEquals\":[\"States.ALL\"],\"IntervalSeconds\":2,\"MaxAttempts\":2,\"BackoffRate\":2}],\"Next\":\"NotificarPorRol\"},\"NotificarPorRol\":{\"Type\":\"Parallel\",\"ResultPath\":\"$.notificaciones\",\"End\":true,\"Branches\":[{\"StartAt\":\"PubTecnico\",\"States\":{\"PubTecnico\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::sns:publish\",\"Parameters\":{\"TopicArn\":\""
-              - Ref: TopicTecnico
-              - "\",\"Subject.$\":\"States.Format('Incidente {} en {}', $.severidad, $.maquina_id)\",\"Message.$\":\"States.Format('[{}] {} zona {}: {}', $.severidad, $.maquina_id, $.zona, $.resultado.ia.resumen_por_rol.tecnico)\"},\"End\":true}}},{\"StartAt\":\"PubSupervisor\",\"States\":{\"PubSupervisor\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::sns:publish\",\"Parameters\":{\"TopicArn\":\""
-              - Ref: TopicSupervisor
-              - "\",\"Subject.$\":\"States.Format('Incidente {} en {}', $.severidad, $.maquina_id)\",\"Message.$\":\"States.Format('[{}] {} zona {}: {}', $.severidad, $.maquina_id, $.zona, $.resultado.ia.resumen_por_rol.supervisor)\"},\"End\":true}}},{\"StartAt\":\"PubGerente\",\"States\":{\"PubGerente\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::sns:publish\",\"Parameters\":{\"TopicArn\":\""
-              - Ref: TopicGerente
-              - "\",\"Subject.$\":\"States.Format('Incidente {} en {}', $.severidad, $.maquina_id)\",\"Message.$\":\"States.Format('[{}] {} zona {}: {}', $.severidad, $.maquina_id, $.zona, $.resultado.ia.resumen_por_rol.gerente)\"},\"End\":true}}}]}}}"
-
-  Outputs:
-    FlujoIncidenteArn:
-      Value: {Ref: FlujoIncidente}

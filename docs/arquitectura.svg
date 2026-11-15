@@ -1,0 +1,204 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1120" viewBox="0 0 1800 1120">
+<defs>
+  <marker id="punta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1e2a30"/></marker>
+  <marker id="puntaRosa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#C7246A"/></marker>
+  <style>
+    text { font-family: Barlow, 'Segoe UI', Arial, sans-serif; fill: #1e2a30; }
+    .h { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 32px; font-weight: 700; }
+    .s { font-size: 16px; fill: #4a5960; }
+    .r { font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 19px; font-weight: 700; }
+    .t { font-size: 16px; font-weight: 600; }
+    .l { fill: #4a5960; }
+    .p { font-size: 13.5px; font-weight: 500; }
+    .e { font-size: 12.5px; fill: #4a5960; font-style: italic; }
+  </style>
+</defs>
+<rect width="1800" height="1120" fill="#f7f8f6"/>
+<text x="40" y="50" class="h">ArquiFusion: mantenimiento inteligente de flota, 100 % serverless en AWS + Google Cloud</text>
+<text x="40" y="78" class="s">Nada queda encendido: todo se ejecuta por eventos y se paga por uso. Las flechas siguen el camino de una lectura hasta la acción.</text>
+<rect x="20" y="96" width="1760" height="668" rx="10" fill="#E07B00" fill-opacity=".06" stroke="#E07B00" stroke-width="2"/>
+<text x="36" y="122" class="r" fill="#E07B00">AWS us-east-1 (todas las Lambdas y Step Functions usan el rol LabRole)</text>
+<rect x="20" y="790" width="1760" height="150" rx="10" fill="#4285F4" fill-opacity=".06" stroke="#4285F4" stroke-width="2"/>
+<text x="350" y="816" class="r" fill="#4285F4">Google Cloud / Firebase (capa gratuita, sin tarjeta)</text>
+<rect x="20" y="962" width="1760" height="140" rx="10" fill="#66737A" fill-opacity=".06" stroke="#66737A" stroke-width="2" stroke-dasharray="10 7"/>
+<text x="36" y="988" class="r" fill="#66737A">Ruta de escala a miles de máquinas (diseño, no implementado)</text>
+<rect x="50" y="140" width="250" height="80" rx="6" fill="#fff" stroke="#E07B00" stroke-width="2"/>
+<rect x="50" y="140" width="6" height="80" rx="2" fill="#E07B00"/>
+<text x="66" y="164" class="t">Simulador de flota (A)</text>
+<text x="66" y="186" class="l" font-size="14">Lambda generarTelemetria</text>
+<text x="66" y="205" class="l" font-size="14">30 máquinas, 4 zonas, 3 modelos</text>
+<rect x="50" y="250" width="250" height="70" rx="6" fill="#fff" stroke="#C7246A" stroke-width="2"/>
+<rect x="50" y="250" width="6" height="70" rx="2" fill="#C7246A"/>
+<text x="66" y="274" class="t">API Gateway HTTP (A)</text>
+<text x="66" y="296" class="l" font-size="14">POST /ingesta</text>
+<rect x="50" y="350" width="250" height="70" rx="6" fill="#fff" stroke="#E07B00" stroke-width="2"/>
+<rect x="50" y="350" width="6" height="70" rx="2" fill="#E07B00"/>
+<text x="66" y="374" class="t">Lambda ingesta (A)</text>
+<text x="66" y="396" class="l" font-size="14">valida y guarda cada lectura</text>
+<rect x="50" y="450" width="250" height="190" rx="6" fill="#fff" stroke="#E07B00" stroke-width="2"/>
+<rect x="50" y="450" width="6" height="190" rx="2" fill="#E07B00"/>
+<text x="66" y="474" class="t">Lambdas de consulta (B)</text>
+<text x="66" y="496" class="l" font-size="14">máquinas, telemetría, incidentes</text>
+<text x="66" y="515" class="l" font-size="14">técnicos, repuestos, flota</text>
+<text x="66" y="534" class="l" font-size="14">bandeja por rol</text>
+<text x="66" y="553" class="l" font-size="14">atender y cerrar incidente</text>
+<text x="66" y="572" class="l" font-size="14">cierre: historial + recurrencia</text>
+<text x="66" y="591" class="l" font-size="14">fachadas: asistente, demo/falla</text>
+<rect x="50" y="670" width="250" height="74" rx="6" fill="#fff" stroke="#C7246A" stroke-width="2"/>
+<rect x="50" y="670" width="6" height="74" rx="2" fill="#C7246A"/>
+<text x="66" y="694" class="t">API Gateway REST (B)</text>
+<text x="66" y="716" class="l" font-size="14">una sola API para el frontend</text>
+<rect x="340" y="140" width="270" height="370" rx="6" fill="#fff" stroke="#3F8624" stroke-width="2"/>
+<rect x="340" y="140" width="6" height="370" rx="2" fill="#3F8624"/>
+<text x="356" y="164" class="t">DynamoDB (on-demand)</text>
+<text x="356" y="186" class="l" font-size="14">af_maquinas</text>
+<text x="356" y="205" class="l" font-size="14">af_telemetria (TTL 7 días)</text>
+<text x="356" y="224" class="l" font-size="14">af_incidentes (2 GSI)</text>
+<text x="356" y="243" class="l" font-size="14">af_historial</text>
+<text x="356" y="262" class="l" font-size="14">af_tecnicos</text>
+<text x="356" y="281" class="l" font-size="14">af_repuestos</text>
+<text x="356" y="300" class="l" font-size="14">af_notificaciones</text>
+<text x="356" y="319" class="l" font-size="14">af_flota_metricas</text>
+<text x="356" y="338" class="l" font-size="14"></text>
+<text x="356" y="357" class="l" font-size="14">PITR + multi-AZ (alta disponibilidad)</text>
+<text x="356" y="376" class="l" font-size="14">Streams en telemetría e incidentes</text>
+<rect x="340" y="560" width="270" height="184" rx="6" fill="#fff" stroke="#C7246A" stroke-width="2"/>
+<rect x="340" y="560" width="6" height="184" rx="2" fill="#C7246A"/>
+<text x="356" y="584" class="t">SNS: un tópico por rol</text>
+<text x="356" y="606" class="l" font-size="14">técnico, supervisor, gerente</text>
+<text x="356" y="625" class="l" font-size="14">el correo depende de la severidad</text>
+<text x="356" y="644" class="l" font-size="14">todo queda en la bandeja</text>
+<text x="356" y="663" class="l" font-size="14">(af_notificaciones)</text>
+<text x="356" y="682" class="l" font-size="14">el operador solo usa la bandeja</text>
+<rect x="650" y="140" width="330" height="104" rx="6" fill="#fff" stroke="#E07B00" stroke-width="2"/>
+<rect x="650" y="140" width="6" height="104" rx="2" fill="#E07B00"/>
+<text x="666" y="164" class="t">Lambda detectorAnomalias (A)</text>
+<text x="666" y="186" class="l" font-size="14">lee el stream de af_telemetria</text>
+<text x="666" y="205" class="l" font-size="14">EWMA + z-score propio y frente a pares</text>
+<text x="666" y="224" class="l" font-size="14">score combinado, severidad, causa común</text>
+<rect x="650" y="280" width="330" height="464" rx="6" fill="#fff" stroke="#C7246A" stroke-width="2"/>
+<rect x="650" y="280" width="6" height="464" rx="2" fill="#C7246A"/>
+<text x="666" y="304" class="t">Step Functions: FlujoIncidente (B)</text>
+<rect x="672" y="322" width="290" height="36" rx="18" fill="#fbeef4" stroke="#C7246A" stroke-width="1.2"/>
+<text x="817" y="345" class="p" text-anchor="middle">Leer incidente (DynamoDB directo)</text>
+<path d="M817,358 L817,374" stroke="#C7246A" stroke-width="1.5" marker-end="url(#puntaRosa)"/>
+<rect x="672" y="376" width="290" height="36" rx="18" fill="#fbeef4" stroke="#C7246A" stroke-width="1.2"/>
+<text x="817" y="399" class="p" text-anchor="middle">Choice por severidad: define el SLA</text>
+<path d="M817,412 L817,428" stroke="#C7246A" stroke-width="1.5" marker-end="url(#puntaRosa)"/>
+<rect x="672" y="430" width="290" height="36" rx="18" fill="#fbeef4" stroke="#C7246A" stroke-width="1.2"/>
+<text x="817" y="453" class="p" text-anchor="middle">Explicar con IA (reintento, sigue si falla)</text>
+<path d="M817,466 L817,482" stroke="#C7246A" stroke-width="1.5" marker-end="url(#puntaRosa)"/>
+<rect x="672" y="484" width="290" height="36" rx="18" fill="#fbeef4" stroke="#C7246A" stroke-width="1.2"/>
+<text x="817" y="507" class="p" text-anchor="middle">Parallel: asignar técnico | reservar repuesto</text>
+<path d="M817,520 L817,536" stroke="#C7246A" stroke-width="1.5" marker-end="url(#puntaRosa)"/>
+<rect x="672" y="538" width="290" height="36" rx="18" fill="#fbeef4" stroke="#C7246A" stroke-width="1.2"/>
+<text x="817" y="561" class="p" text-anchor="middle">Parallel: notificar a los 4 roles</text>
+<path d="M817,574 L817,590" stroke="#C7246A" stroke-width="1.5" marker-end="url(#puntaRosa)"/>
+<rect x="672" y="592" width="290" height="36" rx="18" fill="#fbeef4" stroke="#C7246A" stroke-width="1.2"/>
+<text x="817" y="615" class="p" text-anchor="middle">Wait SLA, luego ¿lo atendieron?</text>
+<path d="M817,628 L817,644" stroke="#C7246A" stroke-width="1.5" marker-end="url(#puntaRosa)"/>
+<rect x="672" y="646" width="290" height="36" rx="18" fill="#fbeef4" stroke="#C7246A" stroke-width="1.2"/>
+<text x="817" y="669" class="p" text-anchor="middle">Escalar: supervisor, luego gerente</text>
+<path d="M962,664 L972,664 L972,616 L962,616" fill="none" stroke="#C7246A" stroke-width="1.5" marker-end="url(#puntaRosa)"/>
+<text x="672" y="726" class="l" font-size="13">Si algo falla: Catch con aviso por SNS al supervisor</text>
+<rect x="1020" y="140" width="320" height="120" rx="6" fill="#fff" stroke="#E07B00" stroke-width="2"/>
+<rect x="1020" y="140" width="6" height="120" rx="2" fill="#E07B00"/>
+<text x="1036" y="164" class="t">Lambdas de IA (A)</text>
+<text x="1036" y="186" class="l" font-size="14">iaExplicar: causa, acciones y texto por rol</text>
+<text x="1036" y="205" class="l" font-size="14">asistente: responde con datos reales</text>
+<text x="1036" y="224" class="l" font-size="14">Bedrock, luego Gemini, luego plantilla</text>
+<rect x="1020" y="290" width="320" height="160" rx="6" fill="#fff" stroke="#E07B00" stroke-width="2"/>
+<rect x="1020" y="290" width="6" height="160" rx="2" fill="#E07B00"/>
+<text x="1036" y="314" class="t">Lambdas de orquestación (B)</text>
+<text x="1036" y="336" class="l" font-size="14">asignarTecnico: cercanía, especialidad,</text>
+<text x="1036" y="355" class="l" font-size="14">carga y ETA (reserva atómica)</text>
+<text x="1036" y="374" class="l" font-size="14">reservarRepuesto: almacén más cercano</text>
+<text x="1036" y="393" class="l" font-size="14">notificarRol y escalar</text>
+<text x="1036" y="412" class="l" font-size="14">planificarPreventivo</text>
+<rect x="1020" y="480" width="320" height="140" rx="6" fill="#fff" stroke="#C7246A" stroke-width="2"/>
+<rect x="1020" y="480" width="6" height="140" rx="2" fill="#C7246A"/>
+<text x="1036" y="504" class="t">Step Functions: PreventivoDiario (B)</text>
+<text x="1036" y="526" class="l" font-size="14">regla de EventBridge diaria</text>
+<text x="1036" y="545" class="l" font-size="14">batchFlota (A): productividad, combustible,</text>
+<text x="1036" y="564" class="l" font-size="14">preventivo por uso real y repuestos</text>
+<text x="1036" y="583" class="l" font-size="14">plan del día por SNS al supervisor</text>
+<rect x="1020" y="650" width="320" height="94" rx="6" fill="#fff" stroke="#7A5BD6" stroke-width="2"/>
+<rect x="1020" y="650" width="6" height="94" rx="2" fill="#7A5BD6"/>
+<text x="1036" y="674" class="t">CloudWatch Logs</text>
+<text x="1036" y="696" class="l" font-size="14">logs JSON de cada Lambda</text>
+<text x="1036" y="715" class="l" font-size="14">historial visual de cada ejecución</text>
+<rect x="1380" y="140" width="380" height="92" rx="6" fill="#fff" stroke="#E07B00" stroke-width="2"/>
+<rect x="1380" y="140" width="6" height="92" rx="2" fill="#E07B00"/>
+<text x="1396" y="164" class="t">Lambda replicarGcp (A)</text>
+<text x="1396" y="186" class="l" font-size="14">stream de af_incidentes hacia Firestore</text>
+<text x="1396" y="205" class="l" font-size="14">credencial de GCP leída de SSM</text>
+<rect x="1380" y="270" width="380" height="80" rx="6" fill="#fff" stroke="#01A88D" stroke-width="2"/>
+<rect x="1380" y="270" width="6" height="80" rx="2" fill="#01A88D"/>
+<text x="1396" y="294" class="t">Amazon Bedrock</text>
+<text x="1396" y="316" class="l" font-size="14">Nova Micro, pocos tokens, caché por incidente</text>
+<rect x="1380" y="390" width="380" height="130" rx="6" fill="#fff" stroke="#DD344C" stroke-width="2"/>
+<rect x="1380" y="390" width="6" height="130" rx="2" fill="#DD344C"/>
+<text x="1396" y="414" class="t">SSM Parameter Store</text>
+<text x="1396" y="436" class="l" font-size="14">SecureString cifrado con KMS:</text>
+<text x="1396" y="455" class="l" font-size="14">claves de Gemini y de la cuenta de GCP</text>
+<text x="1396" y="474" class="l" font-size="14">ARN del flujo, tópicos SNS y umbrales</text>
+<text x="1396" y="493" class="l" font-size="14">(todas las Lambdas leen de aquí)</text>
+<rect x="50" y="820" width="250" height="100" rx="6" fill="#fff" stroke="#4285F4" stroke-width="2"/>
+<rect x="50" y="820" width="6" height="100" rx="2" fill="#4285F4"/>
+<text x="66" y="844" class="t">Firebase Hosting</text>
+<text x="66" y="866" class="l" font-size="14">frontend React + Leaflet</text>
+<text x="66" y="885" class="l" font-size="14">operador, técnico,</text>
+<text x="66" y="904" class="l" font-size="14">supervisor y gerente</text>
+<rect x="1380" y="820" width="180" height="100" rx="6" fill="#fff" stroke="#4285F4" stroke-width="2"/>
+<rect x="1380" y="820" width="6" height="100" rx="2" fill="#4285F4"/>
+<text x="1396" y="844" class="t">Gemini API</text>
+<text x="1396" y="866" class="l" font-size="14">respaldo de la IA</text>
+<rect x="1580" y="820" width="180" height="100" rx="6" fill="#fff" stroke="#4285F4" stroke-width="2"/>
+<rect x="1580" y="820" width="6" height="100" rx="2" fill="#4285F4"/>
+<text x="1596" y="844" class="t">Firestore</text>
+<text x="1596" y="866" class="l" font-size="14">réplica de incidentes</text>
+<text x="1596" y="885" class="l" font-size="14">(segunda nube)</text>
+<rect x="50" y="1004" width="186" height="56" rx="6" fill="#fff" stroke="#66737A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="143" y="1037" class="p" text-anchor="middle">Miles de máquinas</text>
+<path d="M236,1032 L262,1032" fill="none" stroke="#1e2a30" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#punta)"/>
+<rect x="264" y="1004" width="186" height="56" rx="6" fill="#fff" stroke="#66737A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="357" y="1037" class="p" text-anchor="middle">API Gateway</text>
+<path d="M450,1032 L476,1032" fill="none" stroke="#1e2a30" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#punta)"/>
+<rect x="478" y="1004" width="186" height="56" rx="6" fill="#fff" stroke="#66737A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="571" y="1037" class="p" text-anchor="middle">SQS (amortigua picos)</text>
+<path d="M664,1032 L690,1032" fill="none" stroke="#1e2a30" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#punta)"/>
+<rect x="692" y="1004" width="186" height="56" rx="6" fill="#fff" stroke="#66737A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="785" y="1037" class="p" text-anchor="middle">Lambda por lotes</text>
+<path d="M878,1032 L904,1032" fill="none" stroke="#1e2a30" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#punta)"/>
+<rect x="906" y="1004" width="186" height="56" rx="6" fill="#fff" stroke="#66737A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="999" y="1037" class="p" text-anchor="middle">DynamoDB + TTL</text>
+<path d="M1092,1032 L1118,1032" fill="none" stroke="#1e2a30" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#punta)"/>
+<rect x="1120" y="1004" width="186" height="56" rx="6" fill="#fff" stroke="#66737A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="1213" y="1037" class="p" text-anchor="middle">Firehose</text>
+<path d="M1306,1032 L1332,1032" fill="none" stroke="#1e2a30" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#punta)"/>
+<rect x="1334" y="1004" width="186" height="56" rx="6" fill="#fff" stroke="#66737A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="1427" y="1037" class="p" text-anchor="middle">S3 en Parquet</text>
+<path d="M1520,1032 L1546,1032" fill="none" stroke="#1e2a30" stroke-width="1.8" stroke-dasharray="6 5" marker-end="url(#punta)"/>
+<rect x="1548" y="1004" width="186" height="56" rx="6" fill="#fff" stroke="#66737A" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="1641" y="1037" class="p" text-anchor="middle">Athena / BigQuery</text>
+<path d="M50,180 L34,180 L34,385 L48,385" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<path d="M175,320 L175,348" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<path d="M300,385 L338,385" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<path d="M610,192 L648,192" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<path d="M815,244 L815,278" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<text x="824" y="266" class="e" text-anchor="start">inicia el flujo (ARN en SSM)</text>
+<path d="M650,340 L612,340" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<path d="M980,296 L1000,296 L1000,200 L1018,200" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<path d="M980,370 L1018,370" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<path d="M650,610 L612,610" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<path d="M1340,230 L1366,230 L1366,310 L1378,310" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<path d="M1340,250 L1354,250 L1354,770 L1470,770 L1470,818" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<text x="1362" y="783" class="e" text-anchor="start">si Bedrock falla</text>
+<path d="M570,140 L570,128 L1570,128 L1570,138" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<text x="1120" y="122" class="e" text-anchor="start">stream de af_incidentes</text>
+<path d="M1760,186 L1772,186 L1772,780 L1670,780 L1670,818" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<path d="M175,820 L175,746" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<text x="184" y="790" class="e" text-anchor="start">HTTPS</text>
+<path d="M175,670 L175,642" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+<path d="M300,480 L338,480" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
+</svg>

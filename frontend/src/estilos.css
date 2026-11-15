@@ -1,0 +1,258 @@
+/* Centro de operación ArquiFusion. Identidad: señalética de seguridad industrial.
+   El color es información (severidad y estado); la interfaz alrededor es pizarra neutra. */
+:root {
+  --concreto: #e9ece8;     /* fondo de la página */
+  --panel: #f7f8f6;        /* superficies de trabajo */
+  --pizarra: #1e2a30;      /* tinta principal y cabecera */
+  --pizarra-2: #4a5960;    /* tinta secundaria */
+  --tenue: #66737a;        /* notas, ejes */
+  --linea: #c9cfcc;        /* bordes */
+  --senal: #f5b800;        /* amarillo de seguridad: acción principal */
+  --critica: #c62828;
+  --alta: #e06a10;
+  --media: #f5b800;
+  --operativa: #2e7d4f;
+  --detenida: #8a9599;
+  --mantenimiento: #1f5fa8;
+  --condensada: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --texto: 'Barlow', system-ui, sans-serif;
+  --alto-pestanas: 48px;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; height: 100%; }
+.app { height: 100vh; display: flex; flex-direction: column; }
+.app > main { flex: 1; min-height: 0; overflow-y: auto; }
+body { background: var(--concreto); color: var(--pizarra); font: 400 15px/1.5 var(--texto); }
+h1, h2, h3 { font-family: var(--condensada); line-height: 1.1; margin: 0; }
+h2 { font-size: 26px; font-weight: 700; margin-bottom: 12px; }
+h3 { font-size: 19px; font-weight: 600; margin: 22px 0 8px; color: var(--pizarra-2); }
+p { margin: 0 0 10px; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--mantenimiento); outline-offset: 2px; }
+small { color: var(--tenue); }
+.oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* ---------- Baliza (cabecera) ---------- */
+.baliza { background: var(--pizarra); color: #fff; position: relative; z-index: 1100; }
+.baliza-franja { height: 12px; --raya: #f5b800;
+  background: repeating-linear-gradient(-45deg, var(--raya) 0 14px, var(--pizarra) 14px 28px); background-size: 40px 40px; }
+.baliza-alta .baliza-franja { --raya: var(--alta); }
+.baliza-critica .baliza-franja { --raya: var(--critica); animation: baliza 1.2s linear infinite; }
+.baliza-calma .baliza-franja { --raya: #3c4a51; }
+@keyframes baliza { to { background-position: 40px 0; } }
+@media (prefers-reduced-motion: reduce) { .baliza-critica .baliza-franja { animation: none; } }
+
+.baliza-cuerpo { display: flex; align-items: center; gap: 28px; padding: 12px 24px; flex-wrap: wrap; }
+.baliza-titulo { min-width: 260px; flex: 1; }
+.marca { font-family: var(--condensada); font-weight: 600; font-size: 16px; color: #b7c2c6; }
+.baliza h1 { font-size: 34px; font-weight: 700; }
+.baliza-critica h1 { color: #ffd3d3; }
+.contadores { display: flex; gap: 6px; margin: 0; }
+.contador { padding: 4px 14px; border-left: 4px solid #3c4a51; }
+.contador.sev-critica { border-color: var(--critica); }
+.contador.sev-alta { border-color: var(--alta); }
+.contador.sev-media { border-color: var(--media); }
+.contador dt { font-size: 13px; color: #b7c2c6; }
+.contador dd { margin: 0; font: 700 34px/1 var(--condensada); }
+.contador small { font-size: 16px; color: #b7c2c6; font-weight: 500; }
+.baliza-acciones { position: relative; }
+.baliza .boton-secundario { border-color: #6c7b82; color: #fff; }
+
+/* ---------- Pestañas ---------- */
+.pestanas { flex-shrink: 0; display: flex; gap: 2px; padding: 0 24px; background: var(--panel); border-bottom: 1px solid var(--linea); height: var(--alto-pestanas); overflow-x: auto; }
+.pestanas button { border: 0; background: none; padding: 0 16px; font: 600 17px var(--condensada); color: var(--pizarra-2); border-bottom: 4px solid transparent; cursor: pointer; white-space: nowrap; }
+.pestanas button:hover { color: var(--pizarra); }
+.pestanas .activa { color: var(--pizarra); border-bottom-color: var(--senal); }
+
+/* ---------- Botones y formularios ---------- */
+.boton-primario, .boton-secundario { border-radius: 4px; padding: 8px 16px; font-weight: 600; cursor: pointer; }
+.boton-primario { background: var(--senal); border: 2px solid var(--senal); color: var(--pizarra); }
+.boton-primario:hover { background: #ffc61a; }
+.boton-secundario { background: transparent; border: 2px solid var(--linea); }
+.boton-secundario:hover { border-color: var(--pizarra-2); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.boton-texto { background: none; border: 0; padding: 0; color: var(--mantenimiento); text-decoration: underline; cursor: pointer; font-weight: 500; }
+.fila-botones { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 6px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 500; margin-bottom: 10px; }
+label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; margin: 2px 0; }
+input, select { border: 1px solid var(--linea); border-radius: 4px; padding: 7px 10px; background: #fff; }
+fieldset { border: 1px solid var(--linea); border-radius: 4px; margin: 0 0 10px; padding: 8px 12px; }
+legend { font-size: 14px; font-weight: 500; padding: 0 4px; }
+.segmentado { display: flex; gap: 16px; }
+.segmentado label { flex-direction: row; align-items: center; margin: 0; font-weight: 400; }
+
+.panel-simulacion { position: absolute; right: 0; top: calc(100% + 10px); width: 340px; background: var(--panel); color: var(--pizarra);
+  border: 1px solid var(--linea); border-top: 4px solid var(--senal); border-radius: 4px; padding: 16px; box-shadow: 0 12px 32px rgba(30, 42, 48, .28); }
+
+/* ---------- Avisos ---------- */
+.aviso-error { background: #fbe9e9; border-left: 4px solid var(--critica); padding: 8px 12px; margin: 10px 0; }
+.aviso-ok { background: #e7f3ec; border-left: 4px solid var(--operativa); padding: 8px 12px; margin: 10px 0; }
+.aviso-grupo { background: #fff6dc; border-left: 4px solid var(--media); padding: 8px 12px; margin: 10px 0; }
+.aviso-grupo ul { margin: 4px 0 0; padding-left: 18px; }
+body > #root > .app > .aviso-error { margin: 10px 24px; }
+.vacio { color: var(--tenue); }
+.nota { color: var(--tenue); font-size: 13px; }
+.subtitulo { color: var(--pizarra-2); }
+
+/* ---------- Insignias y etiquetas ---------- */
+.insignia { display: inline-block; font: 700 14px/1 var(--condensada); padding: 4px 8px; border-radius: 2px; vertical-align: middle; }
+.insignia.sev-critica { background: var(--critica); color: #fff; }
+.insignia.sev-alta { background: var(--alta); color: var(--pizarra); }
+.insignia.sev-media { background: var(--media); color: var(--pizarra); }
+.insignia.sev-baja, .insignia.sev-normal { background: var(--linea); color: var(--pizarra); }
+.etiqueta-alerta, .etiqueta-info, .etiqueta-grupo { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 2px; margin-left: 6px; }
+.etiqueta-alerta { background: #fbe9e9; color: #8e1b1b; border: 1px solid #e9b4b4; }
+.etiqueta-info { background: #e6eef8; color: #17457a; border: 1px solid #b9cde6; }
+.etiqueta-grupo { background: #fff6dc; color: #6b4f00; border: 1px solid #e8cf80; }
+.id-maquina { font: 700 22px/1 var(--condensada); }
+.estado-maquina { font-weight: 600; padding: 3px 8px; border-radius: 2px; border-left: 4px solid; background: #fff; }
+.est-operativa { border-color: var(--operativa); }
+.est-detenida { border-color: var(--detenida); }
+.est-requiere_intervencion { border-color: var(--critica); }
+.est-mantenimiento { border-color: var(--mantenimiento); }
+
+/* ---------- Vista Operación: mapa + lateral ---------- */
+.operacion { display: grid; grid-template-columns: minmax(0, 1fr) 440px; overflow: hidden; }
+.app > main.operacion { overflow: hidden; }
+.mapa { position: relative; min-height: 420px; }
+.mapa-leaflet { position: absolute; inset: 0; }
+/* Mapa base en grises: el color queda reservado para el estado de las máquinas */
+.mapa-leaflet .leaflet-tile-pane { filter: grayscale(1) contrast(.85) brightness(1.08); }
+.lateral { overflow-y: auto; background: var(--panel); border-left: 1px solid var(--linea); }
+.panel { padding: 20px 22px; }
+.leyenda { position: absolute; left: 12px; bottom: 22px; z-index: 500; list-style: none; margin: 0; padding: 10px 12px;
+  background: rgba(247, 248, 246, .95); border: 1px solid var(--linea); border-radius: 4px; font-size: 13px; display: grid; gap: 6px; }
+.leyenda li { display: flex; align-items: center; gap: 8px; }
+.leyenda .pin { width: 22px; height: 22px; font-size: 11px; }
+
+.pin { position: relative; isolation: isolate; display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  font: 700 13px/1 var(--condensada); color: #fff; border: 2px solid #fff; border-radius: 3px; box-shadow: 0 1px 3px rgba(0, 0, 0, .45); }
+.pin-operativa { background: var(--operativa); }
+.pin-detenida { background: var(--detenida); }
+.pin-requiere_intervencion { background: var(--critica); }
+.pin-mantenimiento { background: var(--mantenimiento); }
+/* Incidente abierto: rombo de advertencia, como una señal de seguridad */
+.pin-inc { background: transparent; border: 0; box-shadow: none; color: var(--pizarra); }
+.pin-inc::before { content: ''; position: absolute; inset: 3px; z-index: -1; transform: rotate(45deg); border: 2px solid #fff;
+  background: var(--sev, var(--media)); box-shadow: 0 1px 4px rgba(0, 0, 0, .5); }
+.pin-inc.sev-critica { --sev: var(--critica); color: #fff; }
+.pin-inc.sev-alta { --sev: var(--alta); }
+.pin-inc.sev-media { --sev: var(--media); }
+.pin-inc.sev-critica::after { content: ''; position: absolute; inset: -6px; z-index: -2; transform: rotate(45deg);
+  border: 3px solid var(--critica); animation: pulso 1.4s ease-out infinite; }
+@keyframes pulso { from { opacity: .9; } to { opacity: 0; transform: rotate(45deg) scale(1.6); } }
+@media (prefers-reduced-motion: reduce) { .pin-inc.sev-critica::after { animation: none; opacity: .6; } }
+.pin-sel { outline: 3px solid var(--mantenimiento); outline-offset: 3px; }
+.pin-tecnico { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%;
+  font: 700 11px/1 var(--condensada); background: #fff; color: var(--mantenimiento); border: 2px solid var(--mantenimiento); }
+.pin-tec-ocupado { background: var(--mantenimiento); color: #fff; }
+.pin-almacen { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; background: var(--pizarra);
+  color: var(--senal); font: 700 12px/1 var(--condensada); border-radius: 2px; }
+
+/* Cola de incidentes */
+.cola { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.tarjeta-incidente { width: 100%; text-align: left; display: grid; gap: 4px; padding: 10px 12px; background: #fff; cursor: pointer;
+  border: 1px solid var(--linea); border-left: 6px solid var(--linea); border-radius: 2px; }
+.tarjeta-incidente:hover { border-color: var(--pizarra-2); }
+.borde-critica { border-left-color: var(--critica); }
+.borde-alta { border-left-color: var(--alta); }
+.borde-media { border-left-color: var(--media); }
+.fila-sup, .fila-inf { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.fila-inf { font-size: 13px; color: var(--tenue); }
+
+/* Detalle */
+.cabecera-detalle { display: flex; align-items: center; gap: 12px; margin: 12px 0 6px; }
+.cabecera-detalle h2 { margin: 0; }
+.enlace-maquina { background: none; border: 0; padding: 0; font: 700 30px/1 var(--condensada); cursor: pointer; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.acciones-ia { margin: 0 0 10px; padding-left: 20px; }
+.por-rol, .datos { margin: 0; display: grid; gap: 8px; }
+.por-rol div, .datos div { display: grid; grid-template-columns: 120px 1fr; gap: 10px; }
+.por-rol dt, .datos dt { font-weight: 600; color: var(--pizarra-2); }
+.por-rol dd, .datos dd { margin: 0; }
+.form-cierre { margin-top: 10px; padding: 12px; border: 1px solid var(--linea); border-radius: 4px; background: #fff; }
+.linea-tiempo { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--linea); }
+.linea-tiempo li { margin: 0 0 6px; position: relative; }
+.linea-tiempo li::before { content: ''; position: absolute; left: -19px; top: 8px; width: 8px; height: 8px; background: var(--pizarra-2); border-radius: 50%; }
+.linea-tiempo time { color: var(--tenue); font-variant-numeric: tabular-nums; margin-right: 6px; }
+
+/* Mini gráficas */
+.sparks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.spark { margin: 0; padding: 8px 10px; background: #fff; border: 1px solid var(--linea); border-radius: 2px; }
+.spark figcaption { display: grid; grid-template-columns: 1fr auto; column-gap: 6px; font-size: 13px; font-weight: 600; }
+.spark-hora { grid-column: 1 / -1; font-weight: 400; font-variant-numeric: tabular-nums; }
+.spark .valor { font-variant-numeric: tabular-nums; }
+.spark svg { display: block; width: 100%; height: 56px; cursor: crosshair; }
+.spark-linea { fill: none; stroke: var(--pizarra); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.spark-base { stroke: var(--linea); stroke-width: 1; }
+.spark-cruz { stroke: var(--tenue); stroke-width: 1; stroke-dasharray: 3 3; }
+.spark-punto { fill: var(--pizarra); stroke: #fff; stroke-width: 2; }
+.spark-rango { display: flex; justify-content: space-between; font-size: 11px; color: var(--tenue); font-variant-numeric: tabular-nums; }
+
+/* ---------- Vistas de página completa ---------- */
+.vista { padding: 20px 24px; display: grid; gap: 20px; max-width: 1400px; }
+.vista .panel { background: var(--panel); border: 1px solid var(--linea); border-radius: 4px; }
+.dos-columnas { grid-template-columns: 1fr 1fr; align-items: start; }
+.tabla-scroll { overflow-x: auto; }
+.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tabla th { text-align: left; font-weight: 600; color: var(--pizarra-2); border-bottom: 2px solid var(--linea); padding: 6px 8px; }
+.tabla td { border-bottom: 1px solid var(--linea); padding: 6px 8px; vertical-align: top; }
+.tabla .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.barra-util { display: inline-block; width: 60px; height: 8px; margin-right: 8px; vertical-align: middle; border-radius: 0 4px 4px 0;
+  background: linear-gradient(90deg, var(--pizarra-2) calc(var(--v) * 100%), #dde2df 0); }
+.resumen-clases { display: flex; gap: 24px; margin: 0 0 14px; }
+.resumen-clases dt { font-size: 13px; color: var(--pizarra-2); }
+.resumen-clases dd { margin: 0; font: 700 30px/1 var(--condensada); }
+.lista-simple { padding-left: 20px; margin: 0; }
+.lista-simple li { margin-bottom: 6px; }
+.estado-tec { font-weight: 600; }
+.tec-disponible { color: var(--operativa); }
+.tec-ocupado { color: var(--mantenimiento); }
+
+.almacen h3 { margin-top: 16px; }
+.stock { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.stock li { display: grid; grid-template-columns: 150px 1fr 130px; align-items: center; gap: 10px; font-size: 14px; }
+.stock-barra { position: relative; height: 12px; background: #dde2df; }
+.stock-relleno { position: absolute; left: 0; top: 0; bottom: 0; background: var(--pizarra-2); border-radius: 0 4px 4px 0; }
+.stock li.bajo .stock-relleno { background: var(--critica); }
+.stock li.bajo .stock-valor { color: #8e1b1b; font-weight: 600; }
+.stock-minimo { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--pizarra); }
+.stock-valor { font-variant-numeric: tabular-nums; }
+
+.segmentado-botones { display: inline-flex; border: 2px solid var(--pizarra); border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
+.segmentado-botones button { border: 0; background: transparent; padding: 6px 16px; font-weight: 600; cursor: pointer; }
+.segmentado-botones .activa { background: var(--pizarra); color: #fff; }
+.bandeja { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-width: 80ch; }
+.bandeja li { background: #fff; border: 1px solid var(--linea); border-radius: 2px; padding: 10px 14px; }
+.bandeja-meta { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--tenue); margin-bottom: 6px; flex-wrap: wrap; }
+.bandeja-texto { white-space: pre-line; }
+
+.chat { display: grid; grid-template-rows: auto auto 1fr auto; min-height: 70vh; max-width: 860px; }
+.chat-mensajes { display: flex; flex-direction: column; gap: 10px; padding: 10px 0; }
+.sugerencias { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.burbuja { max-width: 80ch; padding: 10px 14px; border-radius: 4px; white-space: pre-line; }
+.burbuja p { margin: 0; }
+.burbuja-yo { align-self: flex-end; background: var(--pizarra); color: #fff; }
+.burbuja-ia { align-self: flex-start; background: #fff; border: 1px solid var(--linea); border-left: 4px solid var(--senal); }
+.burbuja-error { align-self: flex-start; background: #fbe9e9; border-left: 4px solid var(--critica); }
+.chat-entrada { display: flex; gap: 10px; }
+.chat-entrada input { flex: 1; }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 1000px) {
+  .operacion { grid-template-columns: minmax(0, 1fr); }
+  .app > main.operacion { overflow-y: auto; }
+  .mapa { height: 60vh; }
+  .lateral { border-left: 0; border-top: 1px solid var(--linea); }
+  .dos-columnas { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  .baliza-cuerpo, .pestanas, .vista { padding-left: 16px; padding-right: 16px; }
+  .contadores { flex-wrap: wrap; }
+  .baliza h1 { font-size: 26px; }
+  .sparks { grid-template-columns: 1fr; }
+  .stock li { grid-template-columns: 1fr; gap: 2px; }
+  .leyenda { grid-template-columns: 1fr 1fr; left: 8px; right: 8px; bottom: 8px; font-size: 12px; gap: 4px 10px; padding: 6px 8px; }
+  .panel-simulacion { position: fixed; left: 16px; right: 16px; top: 120px; width: auto; }
+  .por-rol div, .datos div { grid-template-columns: 1fr; gap: 0; }
+}
