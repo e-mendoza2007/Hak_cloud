@@ -1,0 +1,91 @@
+# PreventivoDiario (Standard). Lo dispara una regla de EventBridge una vez al día (apagada por defecto
+# para no gastar crédito) o a mano desde la consola o la CLI.
+Comment: ArquiFusion - analítica de flota y plan preventivo diario (Persona B)
+StartAt: CalcularFlota
+States:
+
+  CalcularFlota:
+    Type: Task
+    Comment: Lambda de A (batchFlota) - productividad, combustible, preventivo por uso real y demanda de repuestos
+    Resource: arn:aws:states:::lambda:invoke
+    Parameters:
+      FunctionName: ${self:custom.lambdaA}-batchFlota
+      Payload: {}
+    ResultSelector:
+      fecha.$: $.Payload.fecha
+      maquinas.$: $.Payload.maquinas
+      alertas_repuestos.$: $.Payload.alertas_repuestos
+    ResultPath: $.flota
+    TimeoutSeconds: 180
+    Retry:
+      - ErrorEquals: [States.ALL]
+        IntervalSeconds: 5
+        MaxAttempts: 2
+        BackoffRate: 2
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: AvisarFallo
+    Next: PlanificarPreventivo
+
+  PlanificarPreventivo:
+    Type: Task
+    Comment: Lambda de B - qué máquinas mantener hoy (vencidas y próximas) y cuántas se posponen
+    Resource: arn:aws:states:::lambda:invoke
+    Parameters:
+      FunctionName: ${self:custom.lambdaB}-planificarPreventivo
+      Payload:
+        flota.$: $.flota
+    ResultSelector:
+      novedades.$: $.Payload.novedades
+      asunto.$: $.Payload.asunto
+      mensaje.$: $.Payload.mensaje
+    ResultPath: $.plan
+    Retry:
+      - ErrorEquals: [States.ALL]
+        IntervalSeconds: 2
+        MaxAttempts: 2
+        BackoffRate: 2
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.error
+        Next: AvisarFallo
+    Next: HayNovedades
+
+  HayNovedades:
+    Type: Choice
+    Choices:
+      - Variable: $.plan.novedades
+        NumericGreaterThan: 0
+        Next: EnviarPlanSupervisor
+    Default: SinNovedades
+
+  EnviarPlanSupervisor:
+    Type: Task
+    Resource: arn:aws:states:::sns:publish
+    Parameters:
+      TopicArn: arn:aws:sns:${aws:region}:${aws:accountId}:af-notif-supervisor
+      Subject.$: $.plan.asunto
+      Message.$: $.plan.mensaje
+    ResultPath: null
+    Next: PlanEnviado
+
+  PlanEnviado:
+    Type: Succeed
+
+  SinNovedades:
+    Type: Succeed
+    Comment: Ninguna máquina necesita mantenimiento hoy - se evita un mantenimiento innecesario
+
+  AvisarFallo:
+    Type: Task
+    Resource: arn:aws:states:::sns:publish
+    Parameters:
+      TopicArn: arn:aws:sns:${aws:region}:${aws:accountId}:af-notif-supervisor
+      Subject: "[ArquiFusion] Falla en el preventivo diario"
+      Message.$: States.Format('El preventivo diario se detuvo. Detalle {}', States.JsonToString($.error))
+    Next: PreventivoFallido
+
+  PreventivoFallido:
+    Type: Fail
+    Error: PreventivoDiarioFallido

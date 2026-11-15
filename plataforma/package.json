@@ -1,0 +1,12 @@
+{
+  "name": "arquifusion-plataforma",
+  "private": true,
+  "description": "Stack de la Persona B. Fija Serverless Framework v3 para no depender del v4 global.",
+  "scripts": {
+    "deploy": "serverless deploy --stage dev",
+    "test": "python tests/test_core.py && python tests/test_handlers.py"
+  },
+  "devDependencies": {
+    "serverless": "^3.39.0"
+  }
+}

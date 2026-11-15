@@ -1,0 +1,141 @@
+# Stack de la Persona B: Lambdas de la plataforma, API REST, Step Functions FlujoIncidente y PreventivoDiario.
+# Requiere infra-base desplegado (tablas af_*, tópicos af-notif-* y parámetros SSM /arquifusion/...).
+# Despliegue:  npm install  &&  npx serverless deploy --stage dev     (usa serverless@3 de package.json)
+service: arquifusion-plataforma
+frameworkVersion: '3'
+
+custom:
+  # SLA en segundos antes de escalar. Cortos para la demo; en producción serían 30 min / 1 h / 4 h.
+  slaSeg:
+    critica: 60
+    alta: 120
+    media: 180
+  preventivoEstado: DISABLED        # ENABLED para que PreventivoDiario corra solo cada día
+  corsOrigin: '*'                   # después del primer deploy del frontend: 'https://<proyecto>.web.app'
+  cors:
+    origin: ${self:custom.corsOrigin}
+    headers: [Content-Type]
+  # Nombres fijos entre stacks (contrato común 4.1): no se usan exports de CloudFormation
+  lambdaA: arn:aws:lambda:${aws:region}:${aws:accountId}:function:arquifusion-datos-ia-${sls:stage}
+  lambdaB: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${sls:stage}
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 28                       # API Gateway REST corta a los 29 s
+  apiName: arquifusion-${sls:stage}-api
+  iam:
+    role: arn:aws:iam::${aws:accountId}:role/LabRole     # Learner Lab: no se pueden crear roles
+  environment:
+    SSM_PREFIX: /arquifusion
+    CORS_ORIGIN: ${self:custom.corsOrigin}
+    LAMBDA_A_PREFIX: arquifusion-datos-ia-${sls:stage}
+    SLA_SEG: '{"critica": ${self:custom.slaSeg.critica}, "alta": ${self:custom.slaSeg.alta}, "media": ${self:custom.slaSeg.media}}'
+
+package:
+  patterns:
+    - '!node_modules/**'
+    - '!tests/**'
+    - '!statemachines/**'
+    - '!package*.json'
+    - '!README.md'
+    - '!**/__pycache__/**'
+
+functions:
+  # ---------- Tareas de Step Functions ----------
+  asignarTecnico:
+    handler: handlers/asignar_tecnico.lambda_handler
+  reservarRepuesto:
+    handler: handlers/reservar_repuesto.lambda_handler
+  notificarRol:
+    handler: handlers/notificar_rol.lambda_handler
+  escalar:
+    handler: handlers/escalar.lambda_handler
+  planificarPreventivo:
+    handler: handlers/planificar_preventivo.lambda_handler
+    timeout: 60
+
+  # ---------- API REST (una sola API para el frontend) ----------
+  apiMaquinas:
+    handler: handlers/api_maquinas.lambda_handler
+    events:
+      - http: { path: /maquinas, method: get, cors: '${self:custom.cors}' }
+      - http: { path: '/maquinas/{id}', method: get, cors: '${self:custom.cors}' }
+      - http: { path: '/maquinas/{id}/telemetria', method: get, cors: '${self:custom.cors}' }
+  apiIncidentes:
+    handler: handlers/api_incidentes.lambda_handler
+    events:
+      - http: { path: /incidentes, method: get, cors: '${self:custom.cors}' }
+      - http: { path: '/incidentes/{id}', method: get, cors: '${self:custom.cors}' }
+  atenderIncidente:
+    handler: handlers/atender_incidente.lambda_handler
+    events:
+      - http: { path: '/incidentes/{id}/atender', method: post, cors: '${self:custom.cors}' }
+  cerrarIncidente:
+    handler: handlers/cerrar_incidente.lambda_handler
+    events:
+      - http: { path: '/incidentes/{id}/cerrar', method: post, cors: '${self:custom.cors}' }
+  apiConsultas:
+    handler: handlers/api_consultas.lambda_handler
+    events:
+      - http: { path: /tecnicos, method: get, cors: '${self:custom.cors}' }
+      - http: { path: /repuestos/estado, method: get, cors: '${self:custom.cors}' }
+      - http: { path: /flota/productividad, method: get, cors: '${self:custom.cors}' }
+      - http: { path: /flota/combustible, method: get, cors: '${self:custom.cors}' }
+      - http: { path: /notificaciones, method: get, cors: '${self:custom.cors}' }
+  asistente:                        # fachada -> Lambda asistente de A (Bedrock)
+    handler: handlers/fachada_ia.asistente
+    events:
+      - http: { path: /asistente, method: post, cors: '${self:custom.cors}' }
+  demoFalla:                        # fachada -> Lambda demoFalla de A (simulador)
+    handler: handlers/fachada_ia.demo_falla
+    events:
+      - http: { path: /demo/falla, method: post, cors: '${self:custom.cors}' }
+
+resources:
+  Resources:
+    FlujoIncidente:
+      Type: AWS::StepFunctions::StateMachine
+      Properties:
+        StateMachineName: arquifusion-${sls:stage}-flujo-incidente
+        StateMachineType: STANDARD
+        RoleArn: arn:aws:iam::${aws:accountId}:role/LabRole
+        Definition: ${file(./statemachines/flujo-incidente.yml)}
+
+    PreventivoDiario:
+      Type: AWS::StepFunctions::StateMachine
+      Properties:
+        StateMachineName: arquifusion-${sls:stage}-preventivo-diario
+        StateMachineType: STANDARD
+        RoleArn: arn:aws:iam::${aws:accountId}:role/LabRole
+        Definition: ${file(./statemachines/preventivo-diario.yml)}
+
+    # Regla de EventBridge (como el SimuladorSensorIoT del taller S14), pero apuntando a Step Functions
+    ReglaPreventivoDiario:
+      Type: AWS::Events::Rule
+      Properties:
+        Name: arquifusion-${sls:stage}-preventivo-diario
+        Description: Dispara PreventivoDiario a las 06:00 de Lima (11:00 UTC)
+        ScheduleExpression: cron(0 11 * * ? *)
+        State: ${self:custom.preventivoEstado}
+        Targets:
+          - Id: preventivo-diario
+            Arn: {Ref: PreventivoDiario}
+            RoleArn: arn:aws:iam::${aws:accountId}:role/LabRole
+
+    # El detector de A lee este parámetro para iniciar el flujo (antes lo creaba infra-base)
+    PSfnIncidente:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /arquifusion/sfn_incidente_arn
+        Type: String
+        Value: {Ref: FlujoIncidente}
+
+  Outputs:
+    FlujoIncidenteArn:
+      Value: {Ref: FlujoIncidente}
+    PreventivoDiarioArn:
+      Value: {Ref: PreventivoDiario}
