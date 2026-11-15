@@ -14,7 +14,7 @@ const EVENTOS = {
   en_atencion: 'Técnico en atención',
   resuelto: 'Resuelto',
 }
-const FUENTE_IA = { bedrock: 'Amazon Bedrock', gemini: 'Gemini (respaldo)', plantilla: 'plantilla fija (IA no disponible)' }
+const FUENTE_IA = { gemini: 'Gemini (Google)', plantilla: 'plantilla fija (IA no disponible)' }
 
 export default function DetalleIncidente({ id, onVolver, onMaquina, onCambio }) {
   const { datos: inc, error, recargar } = usePolling(`/incidentes/${id}`, 5000)

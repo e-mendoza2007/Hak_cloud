@@ -6,7 +6,7 @@ const SUGERENCIAS = [
   '¿Hay alguna zona con varias máquinas fallando a la vez?',
   '¿Qué máquinas tienen el mantenimiento vencido?',
 ]
-const FUENTE = { bedrock: 'Amazon Bedrock', gemini: 'Gemini (respaldo)', plantilla: 'respuesta de plantilla' }
+const FUENTE = { gemini: 'Gemini (Google)', plantilla: 'respuesta de plantilla (IA no disponible)' }
 const LIMITE = 10                                   // tope de preguntas por sesión: cuida el crédito de IA
 
 export default function VistaAsistente() {

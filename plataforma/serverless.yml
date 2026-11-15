@@ -86,7 +86,7 @@ functions:
       - http: { path: /flota/productividad, method: get, cors: '${self:custom.cors}' }
       - http: { path: /flota/combustible, method: get, cors: '${self:custom.cors}' }
       - http: { path: /notificaciones, method: get, cors: '${self:custom.cors}' }
-  asistente:                        # fachada -> Lambda asistente de A (Bedrock)
+  asistente:                        # fachada -> Lambda asistente de A (Gemini)
     handler: handlers/fachada_ia.asistente
     events:
       - http: { path: /asistente, method: post, cors: '${self:custom.cors}' }
