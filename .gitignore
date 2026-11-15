@@ -1,0 +1,9 @@
+clave.json
+*.json.key
+node_modules/
+__pycache__/
+layer/gcp/python/
+.serverless/
+.env
+
+datos-ia/layer/gcp/python/

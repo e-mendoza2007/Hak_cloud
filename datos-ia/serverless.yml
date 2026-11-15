@@ -1,0 +1,99 @@
+# Stack de la Persona A (Datos e IA). Requiere que el stack infra-base ya esté desplegado
+# (tablas af_*, GSIs, streams, SNS y los parámetros SSM de /arquifusion/...).
+service: arquifusion-datos-ia
+frameworkVersion: '3'
+
+custom:
+  simuladorActivo: false      # pon true para encender el simulador (1 ejecución por minuto)
+  batchActivo: false          # pon true para el batch diario
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 30
+  iam:
+    role: arn:aws:iam::${aws:accountId}:role/LabRole     # cuenta estudiantil: no se pueden crear roles
+  environment:
+    SSM_PREFIX: /arquifusion
+    LECTURAS_POR_EJECUCION: '1'   # 6 = una lectura cada 10 s (útil para la demo)
+  httpApi:
+    cors: true
+
+package:
+  patterns:
+    - '!tests/**'
+    - '!layer/**'
+    - '!README.md'
+    - '!build_layer.sh'
+    - '!**/__pycache__/**'
+
+layers:
+  gcpauth:
+    path: layer/gcp
+    name: arquifusion-${self:provider.stage}-gcpauth
+    compatibleRuntimes:
+      - python3.12
+
+functions:
+  generarTelemetria:
+    handler: handlers/generar_telemetria.handler
+    timeout: 60
+    events:
+      - schedule:
+          rate: rate(1 minute)
+          enabled: ${self:custom.simuladorActivo}
+
+  ingesta:
+    handler: handlers/ingesta.handler
+    events:
+      - httpApi: { method: POST, path: /ingesta }
+
+  demoFalla:
+    handler: handlers/demo_falla.handler
+    events:
+      - httpApi: { method: POST, path: /demo/falla }
+
+  detectorAnomalias:
+    handler: handlers/detector_anomalias.handler
+    timeout: 60
+    events:
+      - stream:
+          type: dynamodb
+          arn: ${ssm:/arquifusion/telemetria_stream_arn}
+          batchSize: 10
+          startingPosition: LATEST
+          maximumRetryAttempts: 2
+
+  iaExplicar:                 # la invoca Step Functions (B)
+    handler: handlers/ia_explicar.handler
+    timeout: 45
+
+  asistente:
+    handler: handlers/asistente.handler
+    timeout: 45
+    events:
+      - httpApi: { method: POST, path: /asistente }
+
+  batchFlota:                 # la invoca el PreventivoDiario (B) o el schedule diario
+    handler: handlers/batch_flota.handler
+    timeout: 120
+    memorySize: 512
+    events:
+      - schedule:
+          rate: rate(1 day)
+          enabled: ${self:custom.batchActivo}
+
+  replicarGcp:
+    handler: handlers/replicar_gcp.handler
+    timeout: 30
+    layers:
+      - { Ref: GcpauthLambdaLayer }
+    events:
+      - stream:
+          type: dynamodb
+          arn: ${ssm:/arquifusion/incidentes_stream_arn}
+          batchSize: 10
+          startingPosition: LATEST

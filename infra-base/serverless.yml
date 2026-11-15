@@ -1,0 +1,214 @@
+# infra-base: tablas, índices, streams, SNS, parámetros SSM y un Step Functions mínimo.
+# Despliega esto PRIMERO (serverless deploy --stage dev). B puede reemplazar FlujoIncidente por el suyo.
+service: arquifusion-infra-base
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'dev'}
+
+resources:
+  Resources:
+    TMaquinas:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: af_maquinas
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - {AttributeName: maquina_id, AttributeType: S}
+        KeySchema:
+          - {AttributeName: maquina_id, KeyType: HASH}
+        PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+    TTelemetria:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: af_telemetria
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - {AttributeName: maquina_id, AttributeType: S}
+          - {AttributeName: ts, AttributeType: N}
+        KeySchema:
+          - {AttributeName: maquina_id, KeyType: HASH}
+          - {AttributeName: ts, KeyType: RANGE}
+        PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+        StreamSpecification: {StreamViewType: NEW_IMAGE}
+        TimeToLiveSpecification: {AttributeName: ttl, Enabled: true}
+
+    TIncidentes:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: af_incidentes
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - {AttributeName: incidente_id, AttributeType: S}
+          - {AttributeName: maquina_id, AttributeType: S}
+          - {AttributeName: zona, AttributeType: S}
+          - {AttributeName: creado_ts, AttributeType: N}
+        KeySchema:
+          - {AttributeName: incidente_id, KeyType: HASH}
+        PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+        StreamSpecification: {StreamViewType: NEW_IMAGE}
+        GlobalSecondaryIndexes:
+          - IndexName: maquina-creado-index
+            KeySchema:
+              - {AttributeName: maquina_id, KeyType: HASH}
+              - {AttributeName: creado_ts, KeyType: RANGE}
+            Projection: {ProjectionType: ALL}
+          - IndexName: zona-creado-index
+            KeySchema:
+              - {AttributeName: zona, KeyType: HASH}
+              - {AttributeName: creado_ts, KeyType: RANGE}
+            Projection: {ProjectionType: ALL}
+
+    THistorial:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: af_historial
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - {AttributeName: maquina_id, AttributeType: S}
+          - {AttributeName: ts, AttributeType: N}
+        KeySchema:
+          - {AttributeName: maquina_id, KeyType: HASH}
+          - {AttributeName: ts, KeyType: RANGE}
+        PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+    TTecnicos:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: af_tecnicos
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - {AttributeName: tecnico_id, AttributeType: S}
+        KeySchema:
+          - {AttributeName: tecnico_id, KeyType: HASH}
+        PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+    TRepuestos:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: af_repuestos
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - {AttributeName: ubicacion_id, AttributeType: S}
+          - {AttributeName: componente_id, AttributeType: S}
+        KeySchema:
+          - {AttributeName: ubicacion_id, KeyType: HASH}
+          - {AttributeName: componente_id, KeyType: RANGE}
+        PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+    TNotificaciones:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: af_notificaciones
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - {AttributeName: rol, AttributeType: S}
+          - {AttributeName: ts, AttributeType: N}
+        KeySchema:
+          - {AttributeName: rol, KeyType: HASH}
+          - {AttributeName: ts, KeyType: RANGE}
+        PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+    TMetricas:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: af_flota_metricas
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - {AttributeName: fecha, AttributeType: S}
+          - {AttributeName: maquina_id, AttributeType: S}
+        KeySchema:
+          - {AttributeName: fecha, KeyType: HASH}
+          - {AttributeName: maquina_id, KeyType: RANGE}
+        PointInTimeRecoverySpecification: {PointInTimeRecoveryEnabled: true}
+
+    TopicTecnico:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: af-notif-tecnico
+
+    TopicSupervisor:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: af-notif-supervisor
+
+    TopicGerente:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: af-notif-gerente
+
+    PTelemetriaStream:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /arquifusion/telemetria_stream_arn
+        Type: String
+        Value: {Fn::GetAtt: [TTelemetria, StreamArn]}
+
+    PIncidentesStream:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /arquifusion/incidentes_stream_arn
+        Type: String
+        Value: {Fn::GetAtt: [TIncidentes, StreamArn]}
+
+    PSnsTecnico:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /arquifusion/sns_topic_tecnico
+        Type: String
+        Value: {Ref: TopicTecnico}
+
+    PSnsSupervisor:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /arquifusion/sns_topic_supervisor
+        Type: String
+        Value: {Ref: TopicSupervisor}
+
+    PSnsGerente:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /arquifusion/sns_topic_gerente
+        Type: String
+        Value: {Ref: TopicGerente}
+
+    PSfnIncidente:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /arquifusion/sfn_incidente_arn
+        Type: String
+        Value: {Ref: FlujoIncidente}
+
+    PUmbrales:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /arquifusion/umbrales
+        Type: String
+        Value: '{"media":0.4,"alta":0.6,"critica":0.8,"cooldown_min":30,"causa_comun_min_maquinas":3,"ventana_min":60}'
+
+    FlujoIncidente:
+      Type: AWS::StepFunctions::StateMachine
+      Properties:
+        StateMachineName: arquifusion-flujo-incidente
+        StateMachineType: STANDARD
+        RoleArn: arn:aws:iam::${aws:accountId}:role/LabRole
+        DefinitionString:
+          Fn::Join:
+            - ''
+            - - ''
+              - "{\"Comment\":\"FlujoIncidente minimo: explicacion con IA + notificacion por rol (B puede reemplazarlo)\",\"StartAt\":\"ExplicarConIA\",\"States\":{\"ExplicarConIA\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\""
+              - 'arn:aws:lambda:${aws:region}:${aws:accountId}:function:arquifusion-datos-ia-${self:provider.stage}-iaExplicar'
+              - "\",\"Payload.$\":\"$\"},\"ResultSelector\":{\"ia.$\":\"$.Payload.ia\"},\"ResultPath\":\"$.resultado\",\"Retry\":[{\"ErrorEquals\":[\"States.ALL\"],\"IntervalSeconds\":2,\"MaxAttempts\":2,\"BackoffRate\":2}],\"Next\":\"NotificarPorRol\"},\"NotificarPorRol\":{\"Type\":\"Parallel\",\"ResultPath\":\"$.notificaciones\",\"End\":true,\"Branches\":[{\"StartAt\":\"PubTecnico\",\"States\":{\"PubTecnico\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::sns:publish\",\"Parameters\":{\"TopicArn\":\""
+              - Ref: TopicTecnico
+              - "\",\"Subject.$\":\"States.Format('Incidente {} en {}', $.severidad, $.maquina_id)\",\"Message.$\":\"States.Format('[{}] {} zona {}: {}', $.severidad, $.maquina_id, $.zona, $.resultado.ia.resumen_por_rol.tecnico)\"},\"End\":true}}},{\"StartAt\":\"PubSupervisor\",\"States\":{\"PubSupervisor\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::sns:publish\",\"Parameters\":{\"TopicArn\":\""
+              - Ref: TopicSupervisor
+              - "\",\"Subject.$\":\"States.Format('Incidente {} en {}', $.severidad, $.maquina_id)\",\"Message.$\":\"States.Format('[{}] {} zona {}: {}', $.severidad, $.maquina_id, $.zona, $.resultado.ia.resumen_por_rol.supervisor)\"},\"End\":true}}},{\"StartAt\":\"PubGerente\",\"States\":{\"PubGerente\":{\"Type\":\"Task\",\"Resource\":\"arn:aws:states:::sns:publish\",\"Parameters\":{\"TopicArn\":\""
+              - Ref: TopicGerente
+              - "\",\"Subject.$\":\"States.Format('Incidente {} en {}', $.severidad, $.maquina_id)\",\"Message.$\":\"States.Format('[{}] {} zona {}: {}', $.severidad, $.maquina_id, $.zona, $.resultado.ia.resumen_por_rol.gerente)\"},\"End\":true}}}]}}}"
+
+  Outputs:
+    FlujoIncidenteArn:
+      Value: {Ref: FlujoIncidente}
