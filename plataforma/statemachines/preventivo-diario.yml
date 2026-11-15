@@ -67,7 +67,9 @@ States:
       TopicArn: arn:aws:sns:${aws:region}:${aws:accountId}:af-notif-supervisor
       Subject.$: $.plan.asunto
       Message.$: $.plan.mensaje
-    ResultPath: null
+    ResultSelector:
+      MessageId.$: $.MessageId
+    ResultPath: $.sns
     Next: PlanEnviado
 
   PlanEnviado:
