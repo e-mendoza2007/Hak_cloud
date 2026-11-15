@@ -106,7 +106,7 @@
 <text x="1036" y="164" class="t">Lambdas de IA (A)</text>
 <text x="1036" y="186" class="l" font-size="14">iaExplicar: causa, acciones y texto por rol</text>
 <text x="1036" y="205" class="l" font-size="14">asistente: responde con datos reales</text>
-<text x="1036" y="224" class="l" font-size="14">Bedrock, luego Gemini, luego plantilla</text>
+<text x="1036" y="224" class="l" font-size="14">llama a Gemini; si falla, usa plantilla</text>
 <rect x="1020" y="290" width="320" height="160" rx="6" fill="#fff" stroke="#E07B00" stroke-width="2"/>
 <rect x="1020" y="290" width="6" height="160" rx="2" fill="#E07B00"/>
 <text x="1036" y="314" class="t">Lambdas de orquestación (B)</text>
@@ -132,17 +132,13 @@
 <text x="1396" y="164" class="t">Lambda replicarGcp (A)</text>
 <text x="1396" y="186" class="l" font-size="14">stream de af_incidentes hacia Firestore</text>
 <text x="1396" y="205" class="l" font-size="14">credencial de GCP leída de SSM</text>
-<rect x="1380" y="270" width="380" height="80" rx="6" fill="#fff" stroke="#01A88D" stroke-width="2"/>
-<rect x="1380" y="270" width="6" height="80" rx="2" fill="#01A88D"/>
-<text x="1396" y="294" class="t">Amazon Bedrock</text>
-<text x="1396" y="316" class="l" font-size="14">Nova Micro, pocos tokens, caché por incidente</text>
-<rect x="1380" y="390" width="380" height="130" rx="6" fill="#fff" stroke="#DD344C" stroke-width="2"/>
-<rect x="1380" y="390" width="6" height="130" rx="2" fill="#DD344C"/>
-<text x="1396" y="414" class="t">SSM Parameter Store</text>
-<text x="1396" y="436" class="l" font-size="14">SecureString cifrado con KMS:</text>
-<text x="1396" y="455" class="l" font-size="14">claves de Gemini y de la cuenta de GCP</text>
-<text x="1396" y="474" class="l" font-size="14">ARN del flujo, tópicos SNS y umbrales</text>
-<text x="1396" y="493" class="l" font-size="14">(todas las Lambdas leen de aquí)</text>
+<rect x="1380" y="270" width="380" height="130" rx="6" fill="#fff" stroke="#DD344C" stroke-width="2"/>
+<rect x="1380" y="270" width="6" height="130" rx="2" fill="#DD344C"/>
+<text x="1396" y="294" class="t">SSM Parameter Store</text>
+<text x="1396" y="316" class="l" font-size="14">SecureString cifrado con KMS:</text>
+<text x="1396" y="335" class="l" font-size="14">claves de Gemini y de la cuenta de GCP</text>
+<text x="1396" y="354" class="l" font-size="14">ARN del flujo, tópicos SNS y umbrales</text>
+<text x="1396" y="373" class="l" font-size="14">(todas las Lambdas leen de aquí)</text>
 <rect x="50" y="820" width="250" height="100" rx="6" fill="#fff" stroke="#4285F4" stroke-width="2"/>
 <rect x="50" y="820" width="6" height="100" rx="2" fill="#4285F4"/>
 <text x="66" y="844" class="t">Firebase Hosting</text>
@@ -152,7 +148,9 @@
 <rect x="1380" y="820" width="180" height="100" rx="6" fill="#fff" stroke="#4285F4" stroke-width="2"/>
 <rect x="1380" y="820" width="6" height="100" rx="2" fill="#4285F4"/>
 <text x="1396" y="844" class="t">Gemini API</text>
-<text x="1396" y="866" class="l" font-size="14">respaldo de la IA</text>
+<text x="1396" y="866" class="l" font-size="14">IA generativa</text>
+<text x="1396" y="885" class="l" font-size="14">flash-lite, caché</text>
+<text x="1396" y="904" class="l" font-size="14">por incidente</text>
 <rect x="1580" y="820" width="180" height="100" rx="6" fill="#fff" stroke="#4285F4" stroke-width="2"/>
 <rect x="1580" y="820" width="6" height="100" rx="2" fill="#4285F4"/>
 <text x="1596" y="844" class="t">Firestore</text>
@@ -191,9 +189,8 @@
 <path d="M980,296 L1000,296 L1000,200 L1018,200" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
 <path d="M980,370 L1018,370" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
 <path d="M650,610 L612,610" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
-<path d="M1340,230 L1366,230 L1366,310 L1378,310" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
 <path d="M1340,250 L1354,250 L1354,770 L1470,770 L1470,818" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
-<text x="1362" y="783" class="e" text-anchor="start">si Bedrock falla</text>
+<text x="1346" y="783" class="e" text-anchor="end">HTTPS con la clave leída de SSM</text>
 <path d="M570,140 L570,128 L1570,128 L1570,138" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>
 <text x="1120" y="122" class="e" text-anchor="start">stream de af_incidentes</text>
 <path d="M1760,186 L1772,186 L1772,780 L1670,780 L1670,818" fill="none" stroke="#1e2a30" stroke-width="1.8" marker-end="url(#punta)"/>

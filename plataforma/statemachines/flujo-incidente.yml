@@ -78,7 +78,7 @@ States:
 
   ExplicarConIA:
     Type: Task
-    Comment: Lambda de A (Bedrock -> Gemini -> plantilla). Si falla, el flujo sigue sin IA.
+    Comment: Lambda de A (Gemini, o plantilla si falla). Si la Lambda falla, el flujo sigue sin IA.
     Resource: arn:aws:states:::lambda:invoke
     Parameters:
       FunctionName: ${self:custom.lambdaA}-iaExplicar
