@@ -129,7 +129,6 @@ States:
           SinTecnico:
             Type: Pass
             Result:
-              tecnico_id: null
               motivo: error al asignar
             End: true
       - StartAt: ReservarRepuesto
@@ -162,7 +161,7 @@ States:
   NotificarPorRol:
     Type: Parallel
     Comment: Mismo incidente, mensaje y canal distintos para cada rol
-    ResultPath: null
+    ResultPath: $.notificaciones
     Branches:
       - StartAt: NotificarOperador
         States:
@@ -174,7 +173,9 @@ States:
               Payload:
                 incidente_id.$: $.incidente_id
                 rol: operador
-            ResultPath: null
+            ResultSelector:
+              rol.$: $.Payload.rol
+              canal.$: $.Payload.canal
             Retry:
               - ErrorEquals: [States.ALL]
                 IntervalSeconds: 2
@@ -182,11 +183,13 @@ States:
                 BackoffRate: 2
             Catch:
               - ErrorEquals: [States.ALL]
-                ResultPath: null
                 Next: OperadorNoNotificado
             End: true
           OperadorNoNotificado:
             Type: Pass
+            Result:
+              rol: operador
+              notificado: false
             End: true
       - StartAt: NotificarTecnico
         States:
@@ -198,7 +201,9 @@ States:
               Payload:
                 incidente_id.$: $.incidente_id
                 rol: tecnico
-            ResultPath: null
+            ResultSelector:
+              rol.$: $.Payload.rol
+              canal.$: $.Payload.canal
             Retry:
               - ErrorEquals: [States.ALL]
                 IntervalSeconds: 2
@@ -206,11 +211,13 @@ States:
                 BackoffRate: 2
             Catch:
               - ErrorEquals: [States.ALL]
-                ResultPath: null
                 Next: TecnicoNoNotificado
             End: true
           TecnicoNoNotificado:
             Type: Pass
+            Result:
+              rol: tecnico
+              notificado: false
             End: true
       - StartAt: NotificarSupervisor
         States:
@@ -222,7 +229,9 @@ States:
               Payload:
                 incidente_id.$: $.incidente_id
                 rol: supervisor
-            ResultPath: null
+            ResultSelector:
+              rol.$: $.Payload.rol
+              canal.$: $.Payload.canal
             Retry:
               - ErrorEquals: [States.ALL]
                 IntervalSeconds: 2
@@ -230,11 +239,13 @@ States:
                 BackoffRate: 2
             Catch:
               - ErrorEquals: [States.ALL]
-                ResultPath: null
                 Next: SupervisorNoNotificado
             End: true
           SupervisorNoNotificado:
             Type: Pass
+            Result:
+              rol: supervisor
+              notificado: false
             End: true
       - StartAt: NotificarGerente
         States:
@@ -246,7 +257,9 @@ States:
               Payload:
                 incidente_id.$: $.incidente_id
                 rol: gerente
-            ResultPath: null
+            ResultSelector:
+              rol.$: $.Payload.rol
+              canal.$: $.Payload.canal
             Retry:
               - ErrorEquals: [States.ALL]
                 IntervalSeconds: 2
@@ -254,11 +267,13 @@ States:
                 BackoffRate: 2
             Catch:
               - ErrorEquals: [States.ALL]
-                ResultPath: null
                 Next: GerenteNoNotificado
             End: true
           GerenteNoNotificado:
             Type: Pass
+            Result:
+              rol: gerente
+              notificado: false
             End: true
     Next: TieneTecnico
 
@@ -266,8 +281,12 @@ States:
     Type: Choice
     Comment: Sin técnico disponible no tiene sentido esperar el SLA; se escala de inmediato
     Choices:
-      - Variable: $.acciones.tecnico.tecnico_id
-        IsNull: true
+      # Sin valores nulos en la definición: CloudFormation los descarta del ASL
+      - Or:
+          - Variable: $.acciones.tecnico.tecnico_id
+            IsPresent: false
+          - Variable: $.acciones.tecnico.tecnico_id
+            IsNull: true
         Next: Escalar
     Default: EsperarSLA
 
