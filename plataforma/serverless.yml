@@ -11,7 +11,7 @@ custom:
     alta: 120
     media: 180
   preventivoEstado: DISABLED        # ENABLED para que PreventivoDiario corra solo cada día
-  corsOrigin: '*'                   # después del primer deploy del frontend: 'https://<proyecto>.web.app'
+  corsOrigin: 'https://cloud-c2933.web.app'   # solo el frontend publicado en Firebase Hosting puede llamar a la API
   cors:
     origin: ${self:custom.corsOrigin}
     headers: [Content-Type]
