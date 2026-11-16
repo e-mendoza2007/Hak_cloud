@@ -1,4 +1,5 @@
-"""Batch de flota (diario o bajo demanda). Evento opcional: {"fecha": "YYYY-MM-DD"}.
+"""Batch de flota (diario o bajo demanda). Evento opcional: {"fecha": "YYYY-MM-DD"} o {"dias_atras": 1}
+(el preventivo diario procesa el último día completo: dias_atras=1).
 Calcula: utilización/productividad, combustible (vs pares y tendencia 7 días), preventivo y repuestos."""
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -12,7 +13,9 @@ def _dia(fecha):
 
 
 def handler(event, context):
-    fecha = (event or {}).get("fecha") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    event = event or {}
+    dias_atras = int(event.get("dias_atras") or 0)
+    fecha = event.get("fecha") or (datetime.now(timezone.utc) - timedelta(days=dias_atras)).strftime("%Y-%m-%d")
     maquinas = {m["maquina_id"]: m for m in scan_all(tabla("maquinas"))}
     hoy = [i for i in _dia(fecha) if i["maquina_id"] in maquinas]
 
@@ -56,9 +59,14 @@ def handler(event, context):
     alertas = demanda_repuestos(list(maquinas.values()), stock)
     irregulares = []
     for r in reps:
-        ci = consumo_irregular(r.get("consumo_historial", []))
+        # serie = consumo histórico + lo realmente reservado ese día, si lo hubo (lo registra reservarRepuesto de B)
+        serie = list(r.get("consumo_historial", []))
+        if fecha in (r.get("consumo_por_dia") or {}):
+            serie.append(r["consumo_por_dia"][fecha])
+        ci = consumo_irregular(serie)
         if ci and ci["irregular"]:
-            irregulares.append({"ubicacion": r["ubicacion_id"], "componente": r["componente_id"], **ci})
+            irregulares.append({"ubicacion": r["ubicacion_id"], "componente": r["componente_id"],
+                                "consumo_dia": serie[-1] if serie else 0, **ci})
 
     resumen = {"clasificacion": {}, "alertas_repuestos": alertas, "consumo_irregular": irregulares,
                "preventivo_vencido": [m for m, v in maquinas.items() if (v.get("preventivo") or {}).get("estado") == "vencido"],
@@ -68,5 +76,5 @@ def handler(event, context):
         for c in f["clasificacion"]:
             resumen["clasificacion"].setdefault(c, []).append(f["maquina_id"])
     set_attrs(tabla("metricas"), {"fecha": fecha, "maquina_id": "#RESUMEN"}, resumen)
-    return {"fecha": fecha, "maquinas": len(filas), "alertas_repuestos": len(alertas),
+    return {"fecha": fecha, "maquinas": len(filas), "alertas_repuestos": len(alertas), "consumo_irregular": len(irregulares),
             "clasificacion": {k: len(v) for k, v in resumen["clasificacion"].items()}}

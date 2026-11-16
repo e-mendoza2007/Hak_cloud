@@ -18,6 +18,7 @@ custom:
   # Nombres fijos entre stacks (contrato común 4.1): no se usan exports de CloudFormation
   lambdaA: arn:aws:lambda:${aws:region}:${aws:accountId}:function:arquifusion-datos-ia-${sls:stage}
   lambdaB: arn:aws:lambda:${aws:region}:${aws:accountId}:function:${self:service}-${sls:stage}
+  bucketArchivo: arquifusion-${sls:stage}-archivo-${aws:accountId}   # nombre único en S3
 
 provider:
   name: aws
@@ -34,6 +35,7 @@ provider:
     CORS_ORIGIN: ${self:custom.corsOrigin}
     LAMBDA_A_PREFIX: arquifusion-datos-ia-${sls:stage}
     SLA_SEG: '{"critica": ${self:custom.slaSeg.critica}, "alta": ${self:custom.slaSeg.alta}, "media": ${self:custom.slaSeg.media}}'
+    BUCKET_ARCHIVO: ${self:custom.bucketArchivo}
 
 package:
   patterns:
@@ -85,11 +87,18 @@ functions:
     reservedConcurrency: 2
     events:
       - http: { path: /panel, method: get, cors: '${self:custom.cors}' }
+      - http: { path: /flota, method: get, cors: '${self:custom.cors}' }
       - http: { path: /tecnicos, method: get, cors: '${self:custom.cors}' }
       - http: { path: /repuestos/estado, method: get, cors: '${self:custom.cors}' }
       - http: { path: /flota/productividad, method: get, cors: '${self:custom.cors}' }
       - http: { path: /flota/combustible, method: get, cors: '${self:custom.cors}' }
       - http: { path: /notificaciones, method: get, cors: '${self:custom.cors}' }
+  analizarFoto:                     # foto del componente -> S3 (versionado) + Rekognition detect-labels
+    handler: handlers/analizar_foto.lambda_handler
+    memorySize: 512
+    reservedConcurrency: 1
+    events:
+      - http: { path: '/incidentes/{id}/foto', method: post, cors: '${self:custom.cors}' }
   asistente:                        # fachada -> Lambda asistente de A (Gemini)
     handler: handlers/fachada_ia.asistente
     reservedConcurrency: 1
@@ -103,6 +112,43 @@ functions:
 
 resources:
   Resources:
+    # S3 con versionado: archivo diario del preventivo y fotos de componentes (persistencia extra)
+    BucketArchivo:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.bucketArchivo}
+        VersioningConfiguration:
+          Status: Enabled
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        LifecycleConfiguration:
+          Rules:
+            - Id: versiones-viejas-30-dias
+              Status: Enabled
+              NoncurrentVersionExpiration:
+                NoncurrentDays: 30
+
+    # Errores de API Gateway (p. ej. Lambda frenada por su tope) también llevan CORS: el navegador ve el código real
+    RespuestaError4xx:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        RestApiId: {Ref: ApiGatewayRestApi}
+        ResponseType: DEFAULT_4XX
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'${self:custom.corsOrigin}'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type'"
+    RespuestaError5xx:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        RestApiId: {Ref: ApiGatewayRestApi}
+        ResponseType: DEFAULT_5XX
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'${self:custom.corsOrigin}'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type'"
+
     FlujoIncidente:
       Type: AWS::StepFunctions::StateMachine
       Properties:

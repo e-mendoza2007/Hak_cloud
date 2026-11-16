@@ -90,7 +90,8 @@ def prueba_completa():
         ssm.put_parameter(Name=f"/arquifusion/sns_topic_{rol}", Value=arn, Type="String")
 
     from handlers import (asignar_tecnico, reservar_repuesto, escalar, atender_incidente, operaciones,
-                          cerrar_incidente, api_incidentes, api_maquinas, api_consultas, planificar_preventivo)
+                          cerrar_incidente, api_incidentes, api_maquinas, api_consultas, planificar_preventivo,
+                          analizar_foto)
     inc = lambda iid: json.loads(json.dumps(db.Table("af_incidentes").get_item(Key={"incidente_id": iid})["Item"],
                                             default=float))  # noqa: E731
 
@@ -112,7 +113,12 @@ def prueba_completa():
     assert reservar_repuesto.lambda_handler({"incidente_id": "INC-1"}, None) == r1                 # idempotente
     r2 = reservar_repuesto.lambda_handler({"incidente_id": "INC-2"}, None)
     assert r2["reservado"] and r2["almacen"] != "ALM-Z2", r2
-    print("  ok  reservar repuesto (cercanía, stock condicional, alerta de mínimo)")
+    from datetime import datetime, timezone
+    hoy = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    cz2 = db.Table("af_repuestos").get_item(Key={"ubicacion_id": "ALM-Z2", "componente_id": "rodamientos"})["Item"]
+    cz1 = db.Table("af_repuestos").get_item(Key={"ubicacion_id": "ALM-Z1", "componente_id": "rodamientos"})["Item"]
+    assert cz2["consumo_por_dia"][hoy] == 1 and cz1["consumo_por_dia"][hoy] == 1, (cz2, cz1)   # idempotente: no suma 2
+    print("  ok  reservar repuesto (cercanía, stock condicional, alerta de mínimo, consumo del día)")
 
     # 3) Notificación: UNA invocación llena las 4 bandejas y devuelve los correos para el Parallel de SNS
     n = operaciones.lambda_handler({"accion": "notificar", "incidente_id": "INC-1"}, None)
@@ -179,7 +185,9 @@ def prueba_completa():
     st, pnl = http(api_consultas.lambda_handler, "/panel")
     assert st == 200 and len(pnl["maquinas"]) == 2 and len(pnl["tecnicos"]) == 2 and "disponibles" in pnl
     assert [i["incidente_id"] for i in pnl["incidentes"]][0] == "INC-2" and "timeline" not in pnl["incidentes"][0]
-    for ruta in ("/tecnicos", "/repuestos/estado", "/flota/productividad", "/flota/combustible"):
+    st, fl = http(api_consultas.lambda_handler, "/flota", query={"fecha": "2026-11-15"})
+    assert st == 200 and fl["fecha"] == "2026-11-15" and "maquinas" in fl
+    for ruta in ("/tecnicos", "/repuestos/estado", "/flota", "/flota/productividad", "/flota/combustible"):
         assert http(api_consultas.lambda_handler, ruta)[0] == 200, ruta
     assert http(api_consultas.lambda_handler, "/notificaciones", query={"rol": "hacker"})[0] == 400
     print("  ok  API de consulta (cola priorizada, detalle, máquinas, telemetría, consultas)")
@@ -188,6 +196,24 @@ def prueba_completa():
     p = planificar_preventivo.lambda_handler({"flota": {"fecha": "2026-11-15"}}, None)
     assert p["novedades"] == 1 and "M-017" in p["mensaje"] and "Se posponen 1" in p["mensaje"], p
     print("  ok  planificar preventivo")
+
+    # 9) Foto del componente: S3 (moto) + Rekognition (doble de prueba)
+    import base64
+    boto3.client("s3").create_bucket(Bucket="bucket-prueba")
+    analizar_foto.BUCKET = "bucket-prueba"
+    class RekFalso:
+        def detect_labels(self, **kw):
+            assert kw["Image"]["Bytes"] == b"JPEGfoto" and kw["MaxLabels"] == 8
+            return {"Labels": [{"Name": "Machine", "Confidence": 98.1}, {"Name": "Rust", "Confidence": 88.0}]}
+    analizar_foto._rek = RekFalso()
+    st, f = http(analizar_foto.lambda_handler, "/incidentes/{id}/foto", {"id": "INC-2"},
+                 {"imagen_base64": base64.b64encode(b"JPEGfoto").decode(), "tipo": "image/jpeg"})
+    assert st == 200 and f["posible_dano"] == ["Rust"] and f["s3"].startswith("s3://bucket-prueba/fotos/INC-2/"), f
+    assert inc("INC-2")["foto"]["etiquetas"][0]["nombre"] == "Machine"
+    assert http(analizar_foto.lambda_handler, "/incidentes/{id}/foto", {"id": "INC-2"}, {"imagen_base64": "no-es-base64!!"})[0] == 400
+    assert http(analizar_foto.lambda_handler, "/incidentes/{id}/foto", {"id": "NOPE"},
+                {"imagen_base64": base64.b64encode(b"x").decode()})[0] == 404
+    print("  ok  foto del componente (S3, etiquetas, posible daño, validaciones)")
 
 
 if __name__ == "__main__":

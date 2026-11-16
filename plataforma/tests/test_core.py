@@ -91,6 +91,23 @@ def test_plan_preventivo():
     assert "Se posponen 1" in texto_plan(plan, "2026-11-15")
 
 
+def test_patrones_previos_a_fallas():
+    import random
+    from core.patrones import senales_previas, reglas
+    c, rnd = 1_800_000_000_000, random.Random(1)
+
+    def lect(ts, vib, tmp):
+        return {"ts": ts, "estado": "operativa", "temperatura": tmp, "vibracion": vib, "presion": 300 + rnd.gauss(0, 5),
+                "combustible_lh": 50 + rnd.gauss(0, 1), "rpm": 1800 + rnd.gauss(0, 30)}
+    base = [lect(c - 3600000 * h, 3 + rnd.gauss(0, .3), 88 + rnd.gauss(0, 2)) for h in range(1, 21)]
+    rampa = [lect(c - (180 - s) * 1000, 3 + 6 * s / 180 + rnd.gauss(0, .2), 88 + 12 * s / 180) for s in range(0, 181, 10)]
+    s = senales_previas(base + rampa, c)
+    assert s["variables"][:2] == ["vibracion", "temperatura"] and 0.5 <= s["anticipacion_min"] <= 3, s
+    assert senales_previas(base[:3] + rampa, c) is None                  # sin línea base suficiente no se inventa nada
+    r = reglas([{"componente": "rodamientos", **s}] * 3 + [{"componente": "inyectores", **s}])
+    assert len(r) == 1 and r[0]["casos"] == 3 and "rodamientos" in r[0]["texto"]
+
+
 if __name__ == "__main__":
     pruebas = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in pruebas:

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { usePolling } from '../hooks.js'
 import { post } from '../api.js'
 import Insignia from './Insignia.jsx'
+import FotoComponente from './FotoComponente.jsx'
 import { ESTADO_INCIDENTE, ROLES, VARIABLES, COMPONENTES, comp, hora, num } from '../formato.js'
 
 const EVENTOS = {
@@ -13,6 +14,7 @@ const EVENTOS = {
   escalado: 'Escalado',
   en_atencion: 'Técnico en atención',
   resuelto: 'Resuelto',
+  foto_analizada: 'Foto analizada con Rekognition',
 }
 const FUENTE_IA = { gemini: 'Gemini (Google)', plantilla: 'plantilla fija (IA no disponible)' }
 
@@ -84,6 +86,8 @@ export default function DetalleIncidente({ id, onVolver, onMaquina, onCambio }) 
           {rep.bajo_minimo && <span className="etiqueta-alerta">Bajo el mínimo</span>}</dd></div>
         {inc.tiempo_detenida_min !== undefined && <div><dt>Tiempo detenida</dt><dd>{num(inc.tiempo_detenida_min, 0)} min{inc.recurrencia ? ', falla recurrente' : ''}</dd></div>}
       </dl>
+
+      <FotoComponente incidenteId={id} foto={inc.foto} onCambio={() => { recargar(); onCambio() }} />
 
       {abierto && (
         <div className="fila-botones">
