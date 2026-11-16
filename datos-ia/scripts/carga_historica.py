@@ -46,8 +46,11 @@ def main(args):
     n = 0
     t0 = time.time()
     with tabla("telemetria").batch_writer(overwrite_by_pkeys=["maquina_id", "ts"]) as bw:
+        ahora_s = int(time.time())
         for h in range(horas, 0, -1):
             ts = fin - h * HORA_MS
+            if ts // 1000 + 7 * 86400 <= ahora_s + 3600:   # vencería por TTL apenas escrita
+                continue
             for m in maquinas:
                 lect = generar_lectura(m, ts, rng)
                 ttl = ts // 1000 + 7 * 86400               # vence a los 7 días de la lectura, como la ingesta real

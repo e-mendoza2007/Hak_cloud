@@ -1,6 +1,7 @@
 """FlujoIncidente -> ReservarRepuesto. Entrada: {"incidente_id": "..."}.
 Descuenta 1 unidad del componente probable en el almacén con stock más cercano y alerta si queda bajo el mínimo."""
 import json
+from datetime import datetime, timezone
 from botocore.exceptions import ClientError
 from common.dynamo import obtener, tabla, actualizar, from_dynamo, es_condicion_fallida
 from core.asignacion import almacenes_por_cercania
@@ -27,14 +28,20 @@ def lambda_handler(event, context):
         try:
             r = tabla("repuestos").update_item(
                 Key={"ubicacion_id": alm, "componente_id": comp},
-                UpdateExpression="SET stock = stock - :uno",
+                UpdateExpression="SET stock = stock - :uno, consumo_por_dia = if_not_exists(consumo_por_dia, :vacio)",
                 ConditionExpression="attribute_exists(stock) AND stock > :cero",
-                ExpressionAttributeValues={":uno": 1, ":cero": 0}, ReturnValues="ALL_NEW")
+                ExpressionAttributeValues={":uno": 1, ":cero": 0, ":vacio": {}}, ReturnValues="ALL_NEW")
         except ClientError as e:
             if es_condicion_fallida(e):
                 continue                              # sin stock aquí: siguiente almacén
             raise
         nuevo = from_dynamo(r["Attributes"])
+        # Consumo real del día: el batch de A lo usa para detectar consumo irregular (dolor 3)
+        dia = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        tabla("repuestos").update_item(
+            Key={"ubicacion_id": alm, "componente_id": comp},
+            UpdateExpression="SET consumo_por_dia.#d = if_not_exists(consumo_por_dia.#d, :cero) + :uno",
+            ExpressionAttributeNames={"#d": dia}, ExpressionAttributeValues={":uno": 1, ":cero": 0})
         rep = {"reservado": True, "componente": comp, "almacen": alm,
                "distancia_km": round(haversine_km(maq["lat"], maq["lon"], *ALMACENES[alm]), 2),
                "stock_restante": nuevo["stock"], "minimo": nuevo.get("minimo", 1),

@@ -1,5 +1,6 @@
 """Consultas de lectura para el frontend:
-GET /panel (máquinas + incidentes abiertos + técnicos en UNA invocación) | GET /tecnicos | GET /repuestos/estado | GET /flota/productividad?fecha= | GET /flota/combustible?fecha=
+GET /panel (máquinas + incidentes abiertos + técnicos en UNA invocación) | GET /flota?fecha= (productividad y
+combustible en UNA invocación; por defecto el último día calculado) | GET /tecnicos | GET /repuestos/estado | GET /flota/productividad?fecha= | GET /flota/combustible?fecha=
 GET /notificaciones?rol=supervisor"""
 from datetime import datetime, timedelta, timezone
 from common.dynamo import scan_all, query, obtener, Key, ahora_ms
@@ -42,6 +43,15 @@ def repuestos():
             "consumo_irregular": res.get("consumo_irregular", []), "fecha_resumen": res.get("fecha")}
 
 
+def _ultima_fecha_calculada():
+    """Último día COMPLETO con #RESUMEN: se busca desde ayer (hoy todavía está en curso)."""
+    for d in range(1, 9):
+        f = (datetime.now(timezone.utc) - timedelta(days=d)).strftime("%Y-%m-%d")
+        if obtener("metricas", {"fecha": f, "maquina_id": "#RESUMEN"}):
+            return f
+    return _hoy()
+
+
 def flota(campos, fecha):
     filas = query("metricas", Key("fecha").eq(fecha))
     maquinas = [{k: f.get(k) for k in campos} for f in filas if not f["maquina_id"].startswith("#")]
@@ -72,10 +82,12 @@ def lambda_handler(event, context):
         return respuesta(200, tecnicos())
     if recurso == "/repuestos/estado":
         return respuesta(200, repuestos())
+    if recurso == "/flota":
+        return respuesta(200, flota(CAMPOS_PROD + CAMPOS_COMB[3:], query_param(event, "fecha") or _ultima_fecha_calculada()))
     if recurso == "/flota/productividad":
-        return respuesta(200, flota(CAMPOS_PROD, query_param(event, "fecha", _hoy())))
+        return respuesta(200, flota(CAMPOS_PROD, query_param(event, "fecha") or _ultima_fecha_calculada()))
     if recurso == "/flota/combustible":
-        return respuesta(200, flota(CAMPOS_COMB, query_param(event, "fecha", _hoy())))
+        return respuesta(200, flota(CAMPOS_COMB, query_param(event, "fecha") or _ultima_fecha_calculada()))
     if recurso == "/notificaciones":
         rol = query_param(event, "rol", "supervisor")
         if rol not in ROLES:

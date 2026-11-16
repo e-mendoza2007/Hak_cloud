@@ -170,6 +170,9 @@ body > #root > .app > .aviso-error { margin: 10px 24px; }
 .por-rol div, .datos div { display: grid; grid-template-columns: 120px 1fr; gap: 10px; }
 .por-rol dt, .datos dt { font-weight: 600; color: var(--pizarra-2); }
 .por-rol dd, .datos dd { margin: 0; }
+.boton-archivo { display: inline-block; position: relative; margin: 6px 0; }
+.boton-archivo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.boton-archivo:focus-within { outline: 3px solid var(--mantenimiento); outline-offset: 2px; }
 .form-cierre { margin-top: 10px; padding: 12px; border: 1px solid var(--linea); border-radius: 4px; background: #fff; }
 .linea-tiempo { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--linea); }
 .linea-tiempo li { margin: 0 0 6px; position: relative; }

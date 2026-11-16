@@ -1,8 +1,10 @@
 # ArquiFusion: mantenimiento inteligente de flota
 
-Plataforma 100 % serverless que convierte la telemetría de maquinaria pesada en acciones: detecta anomalías combinadas, abre el incidente, lo explica con IA, asigna al técnico más adecuado, reserva el repuesto, avisa a cada rol con su propio mensaje y escala si nadie lo atiende. Corre en **AWS** (Lambda, API Gateway, DynamoDB, Step Functions, EventBridge, SNS, SSM) y **Google Cloud** (Gemini para la IA, Firestore y Firebase Hosting).
+Plataforma 100 % serverless que convierte la telemetría de maquinaria pesada en acciones: detecta anomalías combinadas, abre el incidente, lo explica con IA, asigna al técnico más adecuado, reserva el repuesto, avisa a cada rol con su propio mensaje y escala si nadie lo atiende. Corre en **AWS** (Lambda, API Gateway, DynamoDB, Step Functions, EventBridge, SNS, SSM + KMS, S3 con versionado y Rekognition) y **Google Cloud** (Gemini para la IA, Firestore y Firebase Hosting).
 
 ![Arquitectura](docs/arquitectura.png)
+
+Fuente editable en draw.io: `docs/arquitectura.drawio` (se regenera con `python docs/generar_drawio.py`).
 
 | Carpeta | Contenido |
 |---|---|

@@ -8,16 +8,17 @@ const CLASES = {
 }
 
 export default function VistaFlota({ onMaquina }) {
-  const prod = usePolling('/flota/productividad', 30000)
-  const comb = usePolling('/flota/combustible', 30000)
-  const p = prod.datos, c = comb.datos
-  const error = prod.error || comb.error
-  const combPorId = Object.fromEntries((c?.maquinas || []).map((m) => [m.maquina_id, m]))
+  // Una sola llamada (productividad + combustible) del último día completo ya calculado
+  const flota = usePolling('/flota', 60000)
+  const p = flota.datos
+  const error = flota.error
+  const combPorId = Object.fromEntries((p?.maquinas || []).map((m) => [m.maquina_id, m]))
 
   return (
     <main className="vista">
       <section className="panel ancho">
         <h2>Productividad y combustible{p?.fecha ? ` del ${p.fecha}` : ''}</h2>
+        {p?.fecha && <p className="subtitulo">Último día completo procesado por el preventivo diario (24 h de operación).</p>}
         {error && <p className="aviso-error">{error}</p>}
         {p && !p.calculado && (
           <p className="vacio">Todavía no hay métricas calculadas para hoy. Ejecuta la máquina de estados

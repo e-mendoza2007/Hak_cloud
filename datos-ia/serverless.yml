@@ -38,16 +38,18 @@ layers:
       - python3.12
 
 functions:
-  generarTelemetria:
+  generarTelemetria:          # SIN USO: la ingesta corre en una VM con boto3 (regla de la hackathon)
     handler: handlers/generar_telemetria.handler
     timeout: 60
+    reservedConcurrency: 0     # tope 0 = nunca se ejecuta
     events:
       - schedule:
           rate: rate(1 minute)
           enabled: ${self:custom.simuladorActivo}
 
-  ingesta:
+  ingesta:                    # SIN USO por la misma regla
     handler: handlers/ingesta.handler
+    reservedConcurrency: 0
     events:
       - httpApi: { method: POST, path: /ingesta }
 
@@ -67,8 +69,9 @@ functions:
           batchSize: 10
           startingPosition: LATEST
           maximumRetryAttempts: 2
-          filterPatterns:        # las lecturas históricas (historico=true) no invocan el detector
-            - dynamodb:
+          filterPatterns:        # solo INSERT de lecturas normales: ni históricas ni borrados por TTL
+            - eventName: [INSERT]
+              dynamodb:
                 NewImage:
                   historico:
                     BOOL: [{exists: false}]

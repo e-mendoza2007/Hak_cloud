@@ -10,7 +10,8 @@ States:
     Resource: arn:aws:states:::lambda:invoke
     Parameters:
       FunctionName: ${self:custom.lambdaA}-batchFlota
-      Payload: {}
+      Payload:
+        dias_atras: 1          # procesa el último día completo (en UTC)
     ResultSelector:
       fecha.$: $.Payload.fecha
       maquinas.$: $.Payload.maquinas
@@ -42,6 +43,7 @@ States:
       Payload:
         flota.$: $.flota
     ResultSelector:
+      fecha.$: $.Payload.fecha
       novedades.$: $.Payload.novedades
       asunto.$: $.Payload.asunto
       mensaje.$: $.Payload.mensaje
@@ -60,6 +62,29 @@ States:
       - ErrorEquals: [States.ALL]
         ResultPath: $.error
         Next: AvisarFallo
+    Next: ArchivarEnS3
+
+  ArchivarEnS3:
+    Type: Task
+    Comment: Integración directa con S3 (sin Lambda). El bucket tiene versionado.
+    Resource: arn:aws:states:::aws-sdk:s3:putObject
+    Parameters:
+      Bucket: ${self:custom.bucketArchivo}
+      Key.$: States.Format('preventivo/{}.json', $.plan.fecha)
+      Body.$: States.JsonToString($)
+      ContentType: application/json
+    ResultSelector:
+      VersionId.$: $.VersionId
+    ResultPath: $.archivo
+    Retry:
+      - ErrorEquals: [States.ALL]
+        IntervalSeconds: 2
+        MaxAttempts: 2
+        BackoffRate: 2
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.errorArchivo
+        Next: HayNovedades
     Next: HayNovedades
 
   HayNovedades:

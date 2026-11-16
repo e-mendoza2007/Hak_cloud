@@ -44,7 +44,7 @@ export default function VistaRecursos({ tecnicos, onIncidente }) {
           </div>
         )}
         {(rep.datos?.consumo_irregular || []).length > 0 && (
-          <p className="aviso-grupo">Consumo irregular: {rep.datos.consumo_irregular.map((x) => `${comp(x.componente)} en ${x.ubicacion}`).join('; ')}.</p>
+          <p className="aviso-grupo">Consumo irregular: {rep.datos.consumo_irregular.map((x) => `${comp(x.componente)} en ${x.ubicacion} (${x.consumo_dia ?? '?'} en el día, z ${x.z})`).join('; ')}.</p>
         )}
         {Object.entries(almacenes).sort().map(([alm, items]) => (
           <div key={alm} className="almacen">
