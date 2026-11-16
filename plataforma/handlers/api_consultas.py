@@ -58,7 +58,8 @@ def flota(campos, fecha):
     extra = {f["maquina_id"]: f for f in filas if f["maquina_id"].startswith("#")}
     return {"fecha": fecha, "maquinas": sorted(maquinas, key=lambda m: m["maquina_id"]),
             "resumen": extra.get("#RESUMEN", {}).get("clasificacion", {}), "plan": extra.get("#PLAN"),
-            "calculado": any(m.get("utilizacion") is not None for m in maquinas)}
+            "calculado": any(m.get("utilizacion") is not None for m in maquinas),
+            "patrones": obtener("metricas", {"fecha": "#PATRONES", "maquina_id": "actual"}).get("reglas", [])}
 
 
 def panel():

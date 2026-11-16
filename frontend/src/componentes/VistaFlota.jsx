@@ -62,6 +62,15 @@ export default function VistaFlota({ onMaquina }) {
           </div>
         )}
       </section>
+      {p?.patrones?.length > 0 && (
+        <section className="panel ancho">
+          <h2>Patrones previos a fallas</h2>
+          <p className="subtitulo">Reglas de alerta temprana aprendidas de los incidentes pasados: qué variables se desviaron antes de cada falla y con cuánta anticipación.</p>
+          <ul className="lista-simple">
+            {p.patrones.map((r) => <li key={r.componente}>{r.texto}</li>)}
+          </ul>
+        </section>
+      )}
       {p?.plan && (
         <section className="panel ancho">
           <h2>Plan preventivo</h2>
