@@ -18,6 +18,11 @@ States:
     ResultPath: $.flota
     TimeoutSeconds: 180
     Retry:
+      - ErrorEquals: [Lambda.TooManyRequestsException]
+        IntervalSeconds: 2
+        MaxAttempts: 8
+        BackoffRate: 1.5
+        JitterStrategy: FULL
       - ErrorEquals: [States.ALL]
         IntervalSeconds: 5
         MaxAttempts: 2
@@ -42,6 +47,11 @@ States:
       mensaje.$: $.Payload.mensaje
     ResultPath: $.plan
     Retry:
+      - ErrorEquals: [Lambda.TooManyRequestsException]
+        IntervalSeconds: 2
+        MaxAttempts: 8
+        BackoffRate: 1.5
+        JitterStrategy: FULL
       - ErrorEquals: [States.ALL]
         IntervalSeconds: 2
         MaxAttempts: 2

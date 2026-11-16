@@ -5,7 +5,11 @@ export async function api(ruta, opciones = {}) {
   if (!BASE) throw new Error('Falta VITE_API_URL en frontend/.env.local')
   const r = await fetch(BASE + ruta, { ...opciones, headers: { 'Content-Type': 'application/json' } })
   const datos = await r.json().catch(() => ({}))
-  if (!r.ok) throw new Error(datos.error || `La API respondió ${r.status} en ${ruta}`)
+  if (!r.ok) {
+    const e = new Error(datos.error || `La API respondió ${r.status} en ${ruta}`)
+    e.status = r.status
+    throw e
+  }
   return datos
 }
 

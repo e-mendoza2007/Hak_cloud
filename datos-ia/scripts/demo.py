@@ -10,12 +10,17 @@
   python scripts/demo.py suscribir tu_correo@gmail.com          # recibir los emails por rol
 Tipos de falla: rodamiento | refrigeracion | inyectores | hidraulica"""
 import json
+import os
 import sys
 import time
 from decimal import Decimal
-import boto3
+
+os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")   # por si la terminal no tiene región configurada
+import boto3  # noqa: E402
 
 STAGE = "dev"
+# La ingesta corre en esta máquina con boto3 (regla de la hackathon: nada de Lambdas para ingestar)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 lam = boto3.client("lambda")
 db = boto3.resource("dynamodb")
 
@@ -58,10 +63,12 @@ def main(a):
     if c == "correr":
         total, paso = int(a[1]) if len(a) > 1 else 600, int(a[2]) if len(a) > 2 else 10
         fin = time.time() + total
-        print(f"Simulador en bucle: {total}s, una ronda cada {paso}s (Ctrl+C para parar)")
+        from handlers.generar_telemetria import handler as generar_local   # mismo código, ejecutado en local
+        cuenta = boto3.client("sts").get_caller_identity()["Account"]
+        print(f"Simulador local en bucle (cuenta {cuenta}): {total}s, una ronda cada {paso}s (Ctrl+C para parar)")
         while time.time() < fin:
             t0 = time.time()
-            print(" ", time.strftime("%H:%M:%S"), invocar("generarTelemetria", {"lecturas": 1}))
+            print(" ", time.strftime("%H:%M:%S"), generar_local({"lecturas": 1}, None))
             time.sleep(max(0, paso - (time.time() - t0)))
     elif c == "falla":
         print(http("demoFalla", {"maquina_id": a[1], "tipo": a[2], "rampa_min": int(a[3]) if len(a) > 3 else 5}))

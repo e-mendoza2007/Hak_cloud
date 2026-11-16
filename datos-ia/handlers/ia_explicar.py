@@ -16,7 +16,7 @@ def handler(event, context):
     maq = from_dynamo(tabla("maquinas").get_item(Key={"maquina_id": inc["maquina_id"]}).get("Item") or {})
     hist = from_dynamo(tabla("historial").query(KeyConditionExpression=Key("maquina_id").eq(inc["maquina_id"]),
                                                 ScanIndexForward=False, Limit=3).get("Items", []))
-    texto, fuente = generar(prompt_incidente(inc, maq, hist), max_tokens=400,
+    texto, fuente = generar(prompt_incidente(inc, maq, hist), max_tokens=700,
                             validar=lambda t: validar_ia(parse_json_flexible(t)))
     ia = parse_json_flexible(texto) if texto else None
     if not ia:

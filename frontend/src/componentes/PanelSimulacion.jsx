@@ -15,9 +15,12 @@ export default function PanelSimulacion({ maquinas, onCerrar, onCambio }) {
   const [zona, setZona] = useState('Z2')
   const [tipo, setTipo] = useState('rodamiento')
   const [rampa, setRampa] = useState(3)
+  const [cantidad, setCantidad] = useState(3)
   const [estado, setEstado] = useState(null)
 
-  const objetivo = alcance === 'maquina' ? { maquina_id: maquina } : { zona }
+  const deLaZona = maquinas.filter((m) => m.zona === zona).map((m) => m.maquina_id).sort()
+  const objetivo = alcance === 'maquina' ? { maquina_id: maquina }
+    : alcance === 'grupo' ? { maquinas: deLaZona.slice(0, Number(cantidad)) } : { zona }
   const enviar = async (limpiar) => {
     setEstado({ tipo: 'enviando' })
     try {
@@ -36,6 +39,7 @@ export default function PanelSimulacion({ maquinas, onCerrar, onCambio }) {
       <fieldset className="segmentado">
         <legend>Alcance</legend>
         <label><input type="radio" checked={alcance === 'maquina'} onChange={() => setAlcance('maquina')} /> Una máquina</label>
+        <label><input type="radio" checked={alcance === 'grupo'} onChange={() => setAlcance('grupo')} /> Varias de una zona</label>
         <label><input type="radio" checked={alcance === 'zona'} onChange={() => setAlcance('zona')} /> Toda una zona</label>
       </fieldset>
       {alcance === 'maquina' ? (
@@ -48,6 +52,13 @@ export default function PanelSimulacion({ maquinas, onCerrar, onCambio }) {
         <label>Zona
           <select value={zona} onChange={(e) => setZona(e.target.value)}>
             {['Z1', 'Z2', 'Z3', 'Z4'].map((z) => <option key={z}>{z}</option>)}
+          </select>
+        </label>
+      )}
+      {alcance === 'grupo' && (
+        <label>Cuántas máquinas de {zona} (desde 3 se detecta causa común)
+          <select value={cantidad} onChange={(e) => setCantidad(e.target.value)}>
+            {[3, 4].map((n) => <option key={n} value={n}>{n}: {deLaZona.slice(0, n).join(', ')}</option>)}
           </select>
         </label>
       )}

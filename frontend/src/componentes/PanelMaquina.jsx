@@ -7,8 +7,8 @@ const GRAFICAS = ['temperatura', 'vibracion', 'combustible_lh', 'presion']
 const PREVENTIVO = { vencido: 'Vencido', proximo: 'Próximo', ok: 'Al día' }
 
 export default function PanelMaquina({ id, onVolver, onIncidente }) {
-  const { datos, error } = usePolling(`/maquinas/${id}`, 15000)
-  const tele = usePolling(`/maquinas/${id}/telemetria`, 10000)
+  const { datos, error } = usePolling(`/maquinas/${id}`, 20000)
+  const tele = usePolling(`/maquinas/${id}/telemetria`, 20000)
   if (error) return <section className="panel"><button className="boton-texto" onClick={onVolver}>Volver</button><p className="aviso-error">{error}</p></section>
   if (!datos) return <section className="panel"><p className="vacio">Cargando máquina…</p></section>
 

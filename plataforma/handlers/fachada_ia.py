@@ -1,6 +1,6 @@
 """Fachadas de la API REST hacia Lambdas de A (datos-ia):
 POST /asistente  {"pregunta": "..."}                      -> arquifusion-datos-ia-<stage>-asistente
-POST /demo/falla {"maquina_id"|"zona", "tipo", "rampa_min"} o {"...", "limpiar": true} -> ...-demoFalla
+POST /demo/falla {"maquina_id"|"zona"|"maquinas": [...], "tipo", "rampa_min"} o {"...", "limpiar": true} -> ...-demoFalla
 Se invocan con boto3 (Lambda -> Lambda) y se responde con CORS y dentro del límite de 29 s de API Gateway."""
 import json
 import os
@@ -11,6 +11,7 @@ from common.http import respuesta, leer_body
 _lambda = boto3.client("lambda", config=Config(read_timeout=25, connect_timeout=3, retries={"max_attempts": 0}))
 PREFIJO_A = os.environ.get("LAMBDA_A_PREFIX", "arquifusion-datos-ia-dev")
 CAMPOS_FALLA = ("maquina_id", "zona", "tipo", "rampa_min", "limpiar")
+MAX_MAQUINAS = 8
 
 
 def _invocar_a(funcion, body):
@@ -46,6 +47,16 @@ def demo_falla(event, context):
         return respuesta(400, {"error": "body JSON inválido"})
     # Proceso
     try:
+        ids = leer_body(event).get("maquinas")
+        if isinstance(ids, list) and ids:
+            # Varias máquinas elegidas de una zona (para la demo de causa común con 3-4 máquinas).
+            # Se invocan de a una: no suma Lambdas simultáneas.
+            res = {"degradando": [], "limpiadas": []}
+            for mid in [str(x) for x in ids][:MAX_MAQUINAS]:
+                r = json.loads(_invocar_a("demoFalla", {**body, "maquina_id": mid})["body"])
+                for k in res:
+                    res[k] += r.get(k, [])
+            return respuesta(200, {k: v for k, v in res.items() if v} | {k: body[k] for k in ("tipo", "rampa_min") if k in body})
         return _invocar_a("demoFalla", body)
     except Exception as e:
         print(f"[demo_falla] {type(e).__name__}: {str(e)[:300]}")

@@ -30,13 +30,14 @@ npm install && npx firebase-tools login && npx firebase-tools use --add && npm r
 
 ## Probar el flujo completo
 
-1. Enciende el simulador: `python datos-ia/scripts/demo.py correr 900`.
+1. Enciende el simulador **en tu PC** (Python + boto3, sin Lambdas): `python datos-ia/scripts/demo.py correr 900`. Opcional: `python datos-ia/scripts/carga_historica.py` carga 7 días de telemetría horaria (5 040 lecturas, filtradas para que no disparen el detector).
 2. En el frontend, «Simular falla» sobre `M-017` (rodamiento, 3 min). En 3 a 4 minutos aparece el incidente. La ejecución se ve en la consola de Step Functions y los correos llegan por rol (suscríbete con `python datos-ia/scripts/demo.py suscribir tu@correo`).
 3. Marca el incidente «en atención» o espera el SLA para ver el escalamiento. Ciérralo y revisa el historial de la máquina.
 4. Preventivo diario a mano: `aws stepfunctions start-execution --state-machine-arn arn:aws:states:us-east-1:<cuenta>:stateMachine:arquifusion-dev-preventivo-diario`.
 
 ## Costo y seguridad
 
+- Menos de 10 Lambdas a la vez: topes de concurrencia por función, sin Parallel de Lambdas en Step Functions e ingesta desde una máquina con boto3.
 - Nada queda encendido. El simulador y la regla diaria vienen apagados (`simuladorActivo`, `preventivoEstado`). DynamoDB es on-demand, la telemetría expira a los 7 días y los `Wait` de Step Functions no cobran.
 - La IA usa Gemini: Amazon Bedrock no está habilitado en el AWS Academy Learner Lab (`AccessDenied` también con `LabRole`). Se eligió un modelo *lite* porque los modelos con razonamiento tardaban más de 30 s.
 - Secretos y variables globales en **SSM Parameter Store** (SecureString con KMS). El repositorio no contiene claves: `clave.json` y `.env*` están en `.gitignore`.
