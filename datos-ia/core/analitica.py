@@ -91,7 +91,7 @@ def demanda_repuestos(maquinas, stock, umbral_score=0.4):
         riesgo = float(m.get("score_actual", 0)) >= umbral_score
         prev = (m.get("preventivo") or {}).get("estado") in ("vencido", "proximo")
         comp = m.get("componente_probable")
-        if (riesgo or prev) and comp:
+        if (riesgo or prev) and comp and comp != "ninguno":   # sin componente identificado no hay repuesto que pedir
             demanda.setdefault((m["zona"], comp), []).append(m["maquina_id"])
     alertas = []
     for (zona, comp), ids in sorted(demanda.items()):

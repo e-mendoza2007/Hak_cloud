@@ -4,7 +4,7 @@ import { comp } from '../formato.js'
 const ESTADO_TEC = { disponible: 'Disponible', ocupado: 'Ocupado' }
 
 export default function VistaRecursos({ tecnicos, onIncidente }) {
-  const rep = usePolling('/repuestos/estado', 20000)
+  const rep = usePolling('/repuestos/estado', 30000)
   const lista = tecnicos.datos?.tecnicos || []
   const almacenes = rep.datos?.almacenes || {}
   const maxStock = Math.max(3, ...Object.values(almacenes).flat().map((r) => r.stock || 0))

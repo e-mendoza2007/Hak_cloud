@@ -25,20 +25,19 @@ export default function App() {
   const [vista, setVista] = useState(URL_INICIAL.get('vista') || 'operacion')
   const [incidenteSel, setIncidenteSel] = useState(URL_INICIAL.get('incidente'))
   const [maquinaSel, setMaquinaSel] = useState(URL_INICIAL.get('maquina'))
-  const maquinas = usePolling('/maquinas', 10000)
-  const incidentes = usePolling('/incidentes', 8000)
-  const tecnicos = usePolling('/tecnicos', 15000)
-
-  const listaMaq = maquinas.datos?.maquinas || []
-  const listaInc = incidentes.datos?.incidentes || []
-  const error = maquinas.error || incidentes.error
+  // Una sola consulta (máquinas + incidentes + técnicos) cada 15 s: una Lambda en vez de tres
+  const panel = usePolling('/panel', 15000)
+  const listaMaq = panel.datos?.maquinas || []
+  const listaInc = panel.datos?.incidentes || []
+  const tecnicos = { datos: panel.datos && { tecnicos: panel.datos.tecnicos, disponibles: panel.datos.disponibles } }
+  const error = panel.error
 
   const verIncidente = (id) => { setMaquinaSel(null); setIncidenteSel(id); setVista('operacion') }
   const verMaquina = (id) => { setIncidenteSel(null); setMaquinaSel(id); setVista('operacion') }
 
   return (
     <div className="app">
-      <Baliza maquinas={listaMaq} incidentes={listaInc} onCambio={() => { maquinas.recargar(); incidentes.recargar() }} />
+      <Baliza maquinas={listaMaq} incidentes={listaInc} onCambio={panel.recargar} />
       <nav className="pestanas" aria-label="Vistas">
         {VISTAS.map(([id, nombre]) => (
           <button key={id} className={vista === id ? 'activa' : ''} aria-current={vista === id ? 'page' : undefined}
@@ -54,10 +53,10 @@ export default function App() {
           <aside className="lateral">
             {incidenteSel
               ? <DetalleIncidente id={incidenteSel} onVolver={() => setIncidenteSel(null)} onMaquina={verMaquina}
-                                  onCambio={() => { incidentes.recargar(); maquinas.recargar(); tecnicos.recargar() }} />
+                                  onCambio={panel.recargar} />
               : maquinaSel
                 ? <PanelMaquina id={maquinaSel} onVolver={() => setMaquinaSel(null)} onIncidente={verIncidente} />
-                : <ColaIncidentes incidentes={listaInc} cargando={!incidentes.datos && !incidentes.error} onSeleccionar={verIncidente} />}
+                : <ColaIncidentes incidentes={listaInc} cargando={!panel.datos && !panel.error} onSeleccionar={verIncidente} />}
           </aside>
         </main>
       )}

@@ -89,14 +89,14 @@ def prueba_completa():
         arn = sns.create_topic(Name=f"af-notif-{rol}")["TopicArn"]
         ssm.put_parameter(Name=f"/arquifusion/sns_topic_{rol}", Value=arn, Type="String")
 
-    from handlers import (asignar_tecnico, reservar_repuesto, notificar_rol, escalar, atender_incidente,
+    from handlers import (asignar_tecnico, reservar_repuesto, escalar, atender_incidente, operaciones,
                           cerrar_incidente, api_incidentes, api_maquinas, api_consultas, planificar_preventivo)
     inc = lambda iid: json.loads(json.dumps(db.Table("af_incidentes").get_item(Key={"incidente_id": iid})["Item"],
                                             default=float))  # noqa: E731
 
     # 1) Asignación: severidad alta -> especialista; idempotente; un segundo incidente toma a otro técnico
     incidente(db, "INC-1")
-    a = asignar_tecnico.lambda_handler({"incidente_id": "INC-1"}, None)
+    a = operaciones.lambda_handler({"accion": "asignar", "incidente_id": "INC-1"}, None)   # vía el despachador
     assert a["tecnico_id"] == "T-02" and a["especialista"] and a["eta"]["total_min"] > 120, a
     assert inc("INC-1")["estado"] == "asignado"
     assert asignar_tecnico.lambda_handler({"incidente_id": "INC-1"}, None)["reutilizado"]
@@ -114,13 +114,22 @@ def prueba_completa():
     assert r2["reservado"] and r2["almacen"] != "ALM-Z2", r2
     print("  ok  reservar repuesto (cercanía, stock condicional, alerta de mínimo)")
 
-    # 3) Notificación por rol: canal según rol y severidad, todo queda en la bandeja
-    canales = {rol: notificar_rol.lambda_handler({"incidente_id": "INC-1", "rol": rol}, None)["canal"]
-               for rol in ("operador", "tecnico", "supervisor", "gerente")}
-    assert canales == {"operador": "bandeja", "tecnico": "email", "supervisor": "email", "gerente": "bandeja"}
+    # 3) Notificación: UNA invocación llena las 4 bandejas y devuelve los correos para el Parallel de SNS
+    n = operaciones.lambda_handler({"accion": "notificar", "incidente_id": "INC-1"}, None)
+    assert {r: c["enviar"] for r, c in n["correos"].items()} == {"tecnico": True, "supervisor": True, "gerente": False}, n
+    assert "operador" not in n["correos"] and n["zona"] == "Z2" and n["severidad"] == "alta"
+    assert all(len(c["asunto"]) <= 100 and c["asunto"].isascii() for c in n["correos"].values())
+    for rol in ("operador", "tecnico", "supervisor", "gerente"):
+        st, b = http(api_consultas.lambda_handler, "/notificaciones", query={"rol": rol})
+        assert st == 200 and len(b["notificaciones"]) == 1, (rol, b)
     st, bandeja = http(api_consultas.lambda_handler, "/notificaciones", query={"rol": "supervisor"})
-    assert st == 200 and "bajo el mínimo" in bandeja["notificaciones"][0]["mensaje"]
-    print("  ok  notificar por rol (email vs bandeja, mensaje distinto)")
+    assert "bajo el mínimo" in bandeja["notificaciones"][0]["mensaje"]
+    try:
+        operaciones.lambda_handler({"accion": "borrar_todo", "incidente_id": "INC-1"}, None)
+        raise AssertionError("aceptó una acción inválida")
+    except ValueError:
+        pass
+    print("  ok  notificar a los 4 roles en una invocación (correos para SNS directo, bandejas, acción inválida)")
 
     # 4) Escalamiento: nivel 1 -> supervisor; si la severidad sube a crítica, el SLA se acorta
     db.Table("af_incidentes").update_item(Key={"incidente_id": "INC-1"}, UpdateExpression="SET severidad = :c",
@@ -167,6 +176,9 @@ def prueba_completa():
     assert st == 200 and "stats" not in m["maquina"] and len(m["historial"]) == 2 and m["incidentes"]
     st, tel = http(api_maquinas.lambda_handler, "/maquinas/{id}/telemetria", {"id": "M-017"})
     assert st == 200 and len(tel["lecturas"]) == 1
+    st, pnl = http(api_consultas.lambda_handler, "/panel")
+    assert st == 200 and len(pnl["maquinas"]) == 2 and len(pnl["tecnicos"]) == 2 and "disponibles" in pnl
+    assert [i["incidente_id"] for i in pnl["incidentes"]][0] == "INC-2" and "timeline" not in pnl["incidentes"][0]
     for ruta in ("/tecnicos", "/repuestos/estado", "/flota/productividad", "/flota/combustible"):
         assert http(api_consultas.lambda_handler, ruta)[0] == 200, ruta
     assert http(api_consultas.lambda_handler, "/notificaciones", query={"rol": "hacker"})[0] == 400

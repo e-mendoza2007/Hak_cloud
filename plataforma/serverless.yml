@@ -46,41 +46,45 @@ package:
 
 functions:
   # ---------- Tareas de Step Functions ----------
-  asignarTecnico:
-    handler: handlers/asignar_tecnico.lambda_handler
-  reservarRepuesto:
-    handler: handlers/reservar_repuesto.lambda_handler
-  notificarRol:
-    handler: handlers/notificar_rol.lambda_handler
-  escalar:
-    handler: handlers/escalar.lambda_handler
+  # Regla de la hackathon: menos de 10 Lambdas a la vez. reservedConcurrency pone un tope duro por función.
+  operaciones:                      # asignar, reservar, notificar y escalar (un handler por acción)
+    handler: handlers/operaciones.lambda_handler
+    timeout: 60
+    reservedConcurrency: 1
   planificarPreventivo:
     handler: handlers/planificar_preventivo.lambda_handler
     timeout: 60
+    reservedConcurrency: 1
 
   # ---------- API REST (una sola API para el frontend) ----------
   apiMaquinas:
     handler: handlers/api_maquinas.lambda_handler
+    reservedConcurrency: 2
     events:
       - http: { path: /maquinas, method: get, cors: '${self:custom.cors}' }
       - http: { path: '/maquinas/{id}', method: get, cors: '${self:custom.cors}' }
       - http: { path: '/maquinas/{id}/telemetria', method: get, cors: '${self:custom.cors}' }
   apiIncidentes:
     handler: handlers/api_incidentes.lambda_handler
+    reservedConcurrency: 1
     events:
       - http: { path: /incidentes, method: get, cors: '${self:custom.cors}' }
       - http: { path: '/incidentes/{id}', method: get, cors: '${self:custom.cors}' }
   atenderIncidente:
     handler: handlers/atender_incidente.lambda_handler
+    reservedConcurrency: 1
     events:
       - http: { path: '/incidentes/{id}/atender', method: post, cors: '${self:custom.cors}' }
   cerrarIncidente:
     handler: handlers/cerrar_incidente.lambda_handler
+    reservedConcurrency: 1
     events:
       - http: { path: '/incidentes/{id}/cerrar', method: post, cors: '${self:custom.cors}' }
-  apiConsultas:
+  apiConsultas:                     # incluye /panel: lo que la vista principal consulta cada 15 s
     handler: handlers/api_consultas.lambda_handler
+    reservedConcurrency: 2
     events:
+      - http: { path: /panel, method: get, cors: '${self:custom.cors}' }
       - http: { path: /tecnicos, method: get, cors: '${self:custom.cors}' }
       - http: { path: /repuestos/estado, method: get, cors: '${self:custom.cors}' }
       - http: { path: /flota/productividad, method: get, cors: '${self:custom.cors}' }
@@ -88,10 +92,12 @@ functions:
       - http: { path: /notificaciones, method: get, cors: '${self:custom.cors}' }
   asistente:                        # fachada -> Lambda asistente de A (Gemini)
     handler: handlers/fachada_ia.asistente
+    reservedConcurrency: 1
     events:
       - http: { path: /asistente, method: post, cors: '${self:custom.cors}' }
   demoFalla:                        # fachada -> Lambda demoFalla de A (simulador)
     handler: handlers/fachada_ia.demo_falla
+    reservedConcurrency: 1
     events:
       - http: { path: /demo/falla, method: post, cors: '${self:custom.cors}' }
 

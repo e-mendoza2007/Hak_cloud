@@ -12,7 +12,7 @@ const QUE_RECIBE = {
 
 export default function VistaBandeja({ onIncidente }) {
   const [rol, setRol] = useState('supervisor')
-  const { datos, error } = usePolling(`/notificaciones?rol=${rol}`, 8000)
+  const { datos, error } = usePolling(`/notificaciones?rol=${rol}`, 20000)
 
   return (
     <main className="vista">

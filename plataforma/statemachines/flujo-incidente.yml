@@ -1,6 +1,12 @@
 # FlujoIncidente (Standard). Lo inicia el detector de A (datos-ia) con el ARN guardado en SSM
 # /arquifusion/sfn_incidente_arn. Entrada: {incidente_id, maquina_id, zona, severidad, score}.
 # La severidad se lee de DynamoDB (el detector la sigue subiendo después de crear el incidente).
+#
+# Regla de la hackathon: menos de 10 Lambdas a la vez. Por eso:
+#  - las tareas de B van en secuencia y todas usan la Lambda "operaciones" (tope de concurrencia 1);
+#  - los correos por rol salen con un Parallel de sns:publish directos (sin Lambdas);
+#  - si el tope frena una tarea (Lambda.TooManyRequestsException), se reintenta con espera aleatoria.
+# Nota: la definición no usa valores null porque CloudFormation los descarta del ASL.
 Comment: ArquiFusion - gestión automática de un incidente (Persona B)
 StartAt: LeerIncidente
 States:
@@ -39,7 +45,7 @@ States:
 
   ClasificarSeveridad:
     Type: Choice
-    Comment: La severidad define el SLA (y quién recibe email se decide en NotificarRol)
+    Comment: La severidad define el SLA (y quién recibe correo se decide al preparar las notificaciones)
     Choices:
       - Variable: $.actual.severidad
         StringEquals: critica
@@ -89,93 +95,153 @@ States:
     ResultPath: $.ia
     TimeoutSeconds: 60
     Retry:
-      - ErrorEquals: [Lambda.ServiceException, Lambda.AWSLambdaException, Lambda.SdkClientException, Lambda.TooManyRequestsException]
+      - ErrorEquals: [Lambda.TooManyRequestsException]
+        IntervalSeconds: 2
+        MaxAttempts: 8
+        BackoffRate: 1.5
+        JitterStrategy: FULL
+      - ErrorEquals: [Lambda.ServiceException, Lambda.AWSLambdaException, Lambda.SdkClientException]
         IntervalSeconds: 2
         MaxAttempts: 2
         BackoffRate: 2
     Catch:
       - ErrorEquals: [States.ALL]
         ResultPath: $.ia
-        Next: AccionesOperativas
-    Next: AccionesOperativas
+        Next: AsignarTecnico
+    Next: AsignarTecnico
 
-  AccionesOperativas:
-    Type: Parallel
-    Comment: Asignar técnico y reservar repuesto son independientes, así que corren a la vez
+  AsignarTecnico:
+    Type: Task
+    Comment: Cercanía, especialidad y carga según severidad, con ETA (reserva atómica del técnico)
+    Resource: arn:aws:states:::lambda:invoke
+    Parameters:
+      FunctionName: ${self:custom.lambdaB}-operaciones
+      Payload:
+        accion: asignar
+        incidente_id.$: $.incidente_id
     ResultSelector:
-      tecnico.$: $[0]
-      repuesto.$: $[1]
-    ResultPath: $.acciones
-    Branches:
-      - StartAt: AsignarTecnico
-        States:
-          AsignarTecnico:
-            Type: Task
-            Resource: arn:aws:states:::lambda:invoke
-            Parameters:
-              FunctionName: ${self:custom.lambdaB}-asignarTecnico
-              Payload:
-                incidente_id.$: $.incidente_id
-            OutputPath: $.Payload
-            Retry:
-              - ErrorEquals: [States.ALL]
-                IntervalSeconds: 2
-                MaxAttempts: 2
-                BackoffRate: 2
-            Catch:
-              - ErrorEquals: [States.ALL]
-                Next: SinTecnico
-            End: true
-          SinTecnico:
-            Type: Pass
-            Result:
-              motivo: error al asignar
-            End: true
-      - StartAt: ReservarRepuesto
-        States:
-          ReservarRepuesto:
-            Type: Task
-            Resource: arn:aws:states:::lambda:invoke
-            Parameters:
-              FunctionName: ${self:custom.lambdaB}-reservarRepuesto
-              Payload:
-                incidente_id.$: $.incidente_id
-            OutputPath: $.Payload
-            Retry:
-              - ErrorEquals: [States.ALL]
-                IntervalSeconds: 2
-                MaxAttempts: 2
-                BackoffRate: 2
-            Catch:
-              - ErrorEquals: [States.ALL]
-                Next: SinRepuesto
-            End: true
-          SinRepuesto:
-            Type: Pass
-            Result:
-              reservado: false
-              motivo: error al reservar
-            End: true
-    Next: NotificarPorRol
+      tecnico_id.$: $.Payload.tecnico_id
+    ResultPath: $.tecnico
+    Retry:
+      - ErrorEquals: [Lambda.TooManyRequestsException]
+        IntervalSeconds: 2
+        MaxAttempts: 8
+        BackoffRate: 1.5
+        JitterStrategy: FULL
+      - ErrorEquals: [States.ALL]
+        IntervalSeconds: 2
+        MaxAttempts: 2
+        BackoffRate: 2
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.errorAsignar
+        Next: SinTecnico
+    Next: ReservarRepuesto
 
-  NotificarPorRol:
+  SinTecnico:
+    Type: Pass
+    Result:
+      motivo: error al asignar
+    ResultPath: $.tecnico
+    Next: ReservarRepuesto
+
+  ReservarRepuesto:
+    Type: Task
+    Comment: Descuenta el componente probable del almacén con stock más cercano
+    Resource: arn:aws:states:::lambda:invoke
+    Parameters:
+      FunctionName: ${self:custom.lambdaB}-operaciones
+      Payload:
+        accion: reservar
+        incidente_id.$: $.incidente_id
+    ResultSelector:
+      reservado.$: $.Payload.reservado
+    ResultPath: $.repuesto
+    Retry:
+      - ErrorEquals: [Lambda.TooManyRequestsException]
+        IntervalSeconds: 2
+        MaxAttempts: 8
+        BackoffRate: 1.5
+        JitterStrategy: FULL
+      - ErrorEquals: [States.ALL]
+        IntervalSeconds: 2
+        MaxAttempts: 2
+        BackoffRate: 2
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.errorRepuesto
+        Next: SinRepuesto
+    Next: PrepararNotificaciones
+
+  SinRepuesto:
+    Type: Pass
+    Result:
+      reservado: false
+      motivo: error al reservar
+    ResultPath: $.repuesto
+    Next: PrepararNotificaciones
+
+  PrepararNotificaciones:
+    Type: Task
+    Comment: Una sola Lambda arma el mensaje de los 4 roles y llena sus bandejas
+    Resource: arn:aws:states:::lambda:invoke
+    Parameters:
+      FunctionName: ${self:custom.lambdaB}-operaciones
+      Payload:
+        accion: notificar
+        incidente_id.$: $.incidente_id
+    ResultSelector:
+      correos.$: $.Payload.correos
+      zona.$: $.Payload.zona
+      severidad.$: $.Payload.severidad
+    ResultPath: $.notif
+    Retry:
+      - ErrorEquals: [Lambda.TooManyRequestsException]
+        IntervalSeconds: 2
+        MaxAttempts: 8
+        BackoffRate: 1.5
+        JitterStrategy: FULL
+      - ErrorEquals: [States.ALL]
+        IntervalSeconds: 2
+        MaxAttempts: 2
+        BackoffRate: 2
+    Catch:
+      - ErrorEquals: [States.ALL]
+        ResultPath: $.errorNotif
+        Next: TieneTecnico
+    Next: EnviarCorreos
+
+  EnviarCorreos:
     Type: Parallel
-    Comment: Mismo incidente, mensaje y canal distintos para cada rol
-    ResultPath: $.notificaciones
+    Comment: Correo a cada rol con integración directa a SNS (sin Lambdas); cada rama decide si corresponde
+    ResultPath: $.correos
     Branches:
-      - StartAt: NotificarOperador
+      - StartAt: DebeCorreoTecnico
         States:
-          NotificarOperador:
+          DebeCorreoTecnico:
+            Type: Choice
+            Choices:
+              - Variable: $.notif.correos.tecnico.enviar
+                BooleanEquals: true
+                Next: PublicarTecnico
+            Default: SinCorreoTecnico
+          PublicarTecnico:
             Type: Task
-            Resource: arn:aws:states:::lambda:invoke
+            Resource: arn:aws:states:::sns:publish
             Parameters:
-              FunctionName: ${self:custom.lambdaB}-notificarRol
-              Payload:
-                incidente_id.$: $.incidente_id
-                rol: operador
+              TopicArn: arn:aws:sns:${aws:region}:${aws:accountId}:af-notif-tecnico
+              Subject.$: $.notif.correos.tecnico.asunto
+              Message.$: $.notif.correos.tecnico.mensaje
+              MessageAttributes:
+                zona:
+                  DataType: String
+                  StringValue.$: $.notif.zona
+                severidad:
+                  DataType: String
+                  StringValue.$: $.notif.severidad
             ResultSelector:
-              rol.$: $.Payload.rol
-              canal.$: $.Payload.canal
+              rol: tecnico
+              MessageId.$: $.MessageId
             Retry:
               - ErrorEquals: [States.ALL]
                 IntervalSeconds: 2
@@ -183,55 +249,40 @@ States:
                 BackoffRate: 2
             Catch:
               - ErrorEquals: [States.ALL]
-                Next: OperadorNoNotificado
+                Next: SinCorreoTecnico
             End: true
-          OperadorNoNotificado:
-            Type: Pass
-            Result:
-              rol: operador
-              notificado: false
-            End: true
-      - StartAt: NotificarTecnico
-        States:
-          NotificarTecnico:
-            Type: Task
-            Resource: arn:aws:states:::lambda:invoke
-            Parameters:
-              FunctionName: ${self:custom.lambdaB}-notificarRol
-              Payload:
-                incidente_id.$: $.incidente_id
-                rol: tecnico
-            ResultSelector:
-              rol.$: $.Payload.rol
-              canal.$: $.Payload.canal
-            Retry:
-              - ErrorEquals: [States.ALL]
-                IntervalSeconds: 2
-                MaxAttempts: 2
-                BackoffRate: 2
-            Catch:
-              - ErrorEquals: [States.ALL]
-                Next: TecnicoNoNotificado
-            End: true
-          TecnicoNoNotificado:
+          SinCorreoTecnico:
             Type: Pass
             Result:
               rol: tecnico
-              notificado: false
+              enviado: false
             End: true
-      - StartAt: NotificarSupervisor
+      - StartAt: DebeCorreoSupervisor
         States:
-          NotificarSupervisor:
+          DebeCorreoSupervisor:
+            Type: Choice
+            Choices:
+              - Variable: $.notif.correos.supervisor.enviar
+                BooleanEquals: true
+                Next: PublicarSupervisor
+            Default: SinCorreoSupervisor
+          PublicarSupervisor:
             Type: Task
-            Resource: arn:aws:states:::lambda:invoke
+            Resource: arn:aws:states:::sns:publish
             Parameters:
-              FunctionName: ${self:custom.lambdaB}-notificarRol
-              Payload:
-                incidente_id.$: $.incidente_id
-                rol: supervisor
+              TopicArn: arn:aws:sns:${aws:region}:${aws:accountId}:af-notif-supervisor
+              Subject.$: $.notif.correos.supervisor.asunto
+              Message.$: $.notif.correos.supervisor.mensaje
+              MessageAttributes:
+                zona:
+                  DataType: String
+                  StringValue.$: $.notif.zona
+                severidad:
+                  DataType: String
+                  StringValue.$: $.notif.severidad
             ResultSelector:
-              rol.$: $.Payload.rol
-              canal.$: $.Payload.canal
+              rol: supervisor
+              MessageId.$: $.MessageId
             Retry:
               - ErrorEquals: [States.ALL]
                 IntervalSeconds: 2
@@ -239,27 +290,41 @@ States:
                 BackoffRate: 2
             Catch:
               - ErrorEquals: [States.ALL]
-                Next: SupervisorNoNotificado
+                Next: SinCorreoSupervisor
             End: true
-          SupervisorNoNotificado:
+          SinCorreoSupervisor:
             Type: Pass
             Result:
               rol: supervisor
-              notificado: false
+              enviado: false
             End: true
-      - StartAt: NotificarGerente
+      - StartAt: DebeCorreoGerente
         States:
-          NotificarGerente:
+          DebeCorreoGerente:
+            Type: Choice
+            Comment: El gerente solo recibe correo en incidentes críticos; el resto queda en su bandeja
+            Choices:
+              - Variable: $.notif.correos.gerente.enviar
+                BooleanEquals: true
+                Next: PublicarGerente
+            Default: SinCorreoGerente
+          PublicarGerente:
             Type: Task
-            Resource: arn:aws:states:::lambda:invoke
+            Resource: arn:aws:states:::sns:publish
             Parameters:
-              FunctionName: ${self:custom.lambdaB}-notificarRol
-              Payload:
-                incidente_id.$: $.incidente_id
-                rol: gerente
+              TopicArn: arn:aws:sns:${aws:region}:${aws:accountId}:af-notif-gerente
+              Subject.$: $.notif.correos.gerente.asunto
+              Message.$: $.notif.correos.gerente.mensaje
+              MessageAttributes:
+                zona:
+                  DataType: String
+                  StringValue.$: $.notif.zona
+                severidad:
+                  DataType: String
+                  StringValue.$: $.notif.severidad
             ResultSelector:
-              rol.$: $.Payload.rol
-              canal.$: $.Payload.canal
+              rol: gerente
+              MessageId.$: $.MessageId
             Retry:
               - ErrorEquals: [States.ALL]
                 IntervalSeconds: 2
@@ -267,13 +332,13 @@ States:
                 BackoffRate: 2
             Catch:
               - ErrorEquals: [States.ALL]
-                Next: GerenteNoNotificado
+                Next: SinCorreoGerente
             End: true
-          GerenteNoNotificado:
+          SinCorreoGerente:
             Type: Pass
             Result:
               rol: gerente
-              notificado: false
+              enviado: false
             End: true
     Next: TieneTecnico
 
@@ -281,11 +346,10 @@ States:
     Type: Choice
     Comment: Sin técnico disponible no tiene sentido esperar el SLA; se escala de inmediato
     Choices:
-      # Sin valores nulos en la definición: CloudFormation los descarta del ASL
       - Or:
-          - Variable: $.acciones.tecnico.tecnico_id
+          - Variable: $.tecnico.tecnico_id
             IsPresent: false
-          - Variable: $.acciones.tecnico.tecnico_id
+          - Variable: $.tecnico.tecnico_id
             IsNull: true
         Next: Escalar
     Default: EsperarSLA
@@ -338,8 +402,9 @@ States:
     Comment: Nivel 1 -> supervisor, nivel 2 -> gerente. Si la severidad subió, el SLA se acorta.
     Resource: arn:aws:states:::lambda:invoke
     Parameters:
-      FunctionName: ${self:custom.lambdaB}-escalar
+      FunctionName: ${self:custom.lambdaB}-operaciones
       Payload:
+        accion: escalar
         incidente_id.$: $.incidente_id
         control.$: $.control
     ResultSelector:
@@ -348,6 +413,11 @@ States:
       ruta.$: $.Payload.ruta
     ResultPath: $.control
     Retry:
+      - ErrorEquals: [Lambda.TooManyRequestsException]
+        IntervalSeconds: 2
+        MaxAttempts: 8
+        BackoffRate: 1.5
+        JitterStrategy: FULL
       - ErrorEquals: [States.ALL]
         IntervalSeconds: 2
         MaxAttempts: 2

@@ -1,8 +1,8 @@
 """Consultas de lectura para el frontend:
-GET /tecnicos | GET /repuestos/estado | GET /flota/productividad?fecha= | GET /flota/combustible?fecha=
+GET /panel (máquinas + incidentes abiertos + técnicos en UNA invocación) | GET /tecnicos | GET /repuestos/estado | GET /flota/productividad?fecha= | GET /flota/combustible?fecha=
 GET /notificaciones?rol=supervisor"""
 from datetime import datetime, timedelta, timezone
-from common.dynamo import scan_all, query, obtener, Key
+from common.dynamo import scan_all, query, obtener, Key, ahora_ms
 from common.http import respuesta, query_param
 from core.config import ROLES
 
@@ -51,10 +51,23 @@ def flota(campos, fecha):
             "calculado": any(m.get("utilizacion") is not None for m in maquinas)}
 
 
+def panel():
+    """Todo lo que la vista principal necesita, en una sola llamada (antes eran 3 Lambdas cada 8-15 s)."""
+    from handlers.api_maquinas import CAMPOS_LISTA
+    from handlers.api_incidentes import _prioridad
+    maquinas = sorted(scan_all("maquinas", CAMPOS_LISTA), key=lambda m: m["maquina_id"])
+    incs = sorted((i for i in scan_all("incidentes") if i.get("estado") != "resuelto"), key=_prioridad)
+    for i in incs:
+        i.pop("timeline", None)
+    return {"maquinas": maquinas, "incidentes": incs, **tecnicos(), "ts": ahora_ms()}
+
+
 def lambda_handler(event, context):
     # Entrada (json)
     recurso = event.get("resource")
     # Proceso
+    if recurso == "/panel":
+        return respuesta(200, panel())
     if recurso == "/tecnicos":
         return respuesta(200, tecnicos())
     if recurso == "/repuestos/estado":

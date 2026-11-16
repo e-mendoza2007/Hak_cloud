@@ -17,7 +17,7 @@ const EVENTOS = {
 const FUENTE_IA = { gemini: 'Gemini (Google)', plantilla: 'plantilla fija (IA no disponible)' }
 
 export default function DetalleIncidente({ id, onVolver, onMaquina, onCambio }) {
-  const { datos: inc, error, recargar } = usePolling(`/incidentes/${id}`, 5000)
+  const { datos: inc, error, recargar } = usePolling(`/incidentes/${id}`, 10000)
   const [cerrando, setCerrando] = useState(false)
   const [componentes, setComponentes] = useState(null)
   const [intervencion, setIntervencion] = useState('Cambio de componente')
